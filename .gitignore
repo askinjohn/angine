@@ -1,0 +1,15 @@
+node_modules/
+dist/
+ui/dist/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+*.tgz
+*.bundle
+.beacon/
+.angine/
+.agents/
+.codex/
+.aws/

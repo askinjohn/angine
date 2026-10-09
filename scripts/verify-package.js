@@ -59,7 +59,7 @@ else process.exitCode=1;
   };
   const runtime=()=>JSON.parse(fs.readFileSync(path.join(data,'runtime','daemon.json')));
   const base=()=>`http://127.0.0.1:${runtime().port}`;
-  const fetchJson=async(url,options)=>{const response=await fetch(url,{...options,signal:AbortSignal.timeout(5000)});assert.equal(response.ok,true);return response.json();};
+  const fetchJson=async(url,options)=>{const response=await fetch(url,{...options,headers:{...options?.headers,Connection:'close'},signal:AbortSignal.timeout(5000)});assert.equal(response.ok,true);return response.json();};
   const sessionResponse=await fetch(`${base()}/api/dashboard/session`,{signal:AbortSignal.timeout(5000)});
   assert.equal(sessionResponse.ok,true);
   let cookie=sessionResponse.headers.get('set-cookie').split(';')[0];
@@ -97,7 +97,7 @@ else process.exitCode=1;
   execFileSync(process.execPath,[cli,'uninstall'],{env,encoding:'utf8',timeout:15000});
   assert.equal(fs.existsSync(path.join(data,'integration.json')),false);
   assert.ok(fs.existsSync(path.join(data,'state','snapshot.json')));
-  console.log('Fresh archive install passed: both CLI names, isolated setup, Claude/Codex MCP reporting, profiles, archive/restore, restart, and uninstall. Agent CLIs were simulated.');
+  console.log('Fresh archive install passed: Angine CLI, isolated setup, Claude/Codex MCP reporting, profiles, archive/restore, restart, and uninstall. Agent CLIs were simulated.');
 } finally {
   for(const client of clients) try {await client.close();}catch {}
   const runtimeFile=path.join(data,'runtime','daemon.json');

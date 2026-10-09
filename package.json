@@ -20,8 +20,9 @@
     "build:server": "tsc -p tsconfig.server.json && node scripts/mark-bin.js",
     "build:ui": "vite build --config ui/vite.config.js",
     "prepack": "npm run build",
-    "test": "npm run build:server && node --test",
-    "dev": "vite --config ui/vite.config.js"
+    "test": "npm run build:server && node scripts/run-tests.js",
+    "dev": "vite --config ui/vite.config.js",
+    "test:release": "node scripts/verify-package.js"
   },
   "engines": {
     "node": ">=20"
@@ -49,5 +50,13 @@
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/askinjohn/angine.git"
+  },
+  "homepage": "https://github.com/askinjohn/angine#readme",
+  "bugs": {
+    "url": "https://github.com/askinjohn/angine/issues"
+  }
 }

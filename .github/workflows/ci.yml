@@ -21,3 +21,5 @@ jobs:
       - run: npm test
       - run: npx tsc --noEmit -p ui/tsconfig.json
       - run: npm run build
+      - run: npm pack --ignore-scripts
+      - run: npm run test:release -- ./angine-0.1.0.tgz

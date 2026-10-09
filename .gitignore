@@ -13,3 +13,6 @@ ui/dist/
 .agents/
 .codex/
 .aws/
+
+# Local permanent release checkout
+angine/

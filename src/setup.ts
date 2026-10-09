@@ -4,21 +4,21 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { claudeDir, codexDir, dataDir } from './paths.js';
 
-const start = '<!-- beacon:start -->';
-const end = '<!-- beacon:end -->';
-const approvalStart = '# beacon:approvals:start';
-const approvalEnd = '# beacon:approvals:end';
+const start = '<!-- angine:start -->';
+const end = '<!-- angine:end -->';
+const approvalStart = '# angine:approvals:start';
+const approvalEnd = '# angine:approvals:end';
 const approvalBlock = `${approvalStart}
-[mcp_servers.beacon.tools.sync_project]
+[mcp_servers.angine.tools.sync_project]
 approval_mode = "approve"
 
-[mcp_servers.beacon.tools.update_tasks]
+[mcp_servers.angine.tools.update_tasks]
 approval_mode = "approve"
 ${approvalEnd}`;
 const guidance = `${start}
 When you begin implementing an agreed change, use Angine's sync_project MCP tool to publish a short mission plan with stable project, mission, and task keys. The project identifies the product or repository; the mission identifies this specific goal. Older tools without a mission field accept the goal in the project field and group it by workspace. As work changes, batch meaningful status transitions with update_tasks; use sync_project when the plan materially changes. If reliably available in your session context, include sourceSessionId, agentId, parentAgentId, and accountLabel to link agent work; omit unknown values. Include task progress from 0 to 100 only when reliably measurable; omit unknown progress. Keep task metadata concise. Never send prompts, reasoning, source code, diffs, commands, command output, secrets, or environment variables. Reporting failure must not stop implementation; do not repeatedly retry an unavailable reporter.
 ${end}`;
-const bin = fileURLToPath(new URL('../bin/beacon.js', import.meta.url));
+const bin = fileURLToPath(new URL('../bin/angine.js', import.meta.url));
 const manifestPath = () => path.join(dataDir(), 'integration.json');
 const codexConfigPath = () => path.join(codexDir(), 'config.toml');
 type AgentId = 'codex' | 'claude';
@@ -33,14 +33,14 @@ const integrations: Record<AgentId, Integration> = {
       return fs.existsSync(override) && fs.readFileSync(override, 'utf8').trim()
         ? override : path.join(codexDir(), 'AGENTS.md');
     },
-    addArgs: ['mcp', 'add', 'beacon', '--', process.execPath, bin, 'mcp', '--agent', 'codex'],
-    removeArgs: ['mcp', 'remove', 'beacon']
+    addArgs: ['mcp', 'add', 'angine', '--', process.execPath, bin, 'mcp', '--agent', 'codex'],
+    removeArgs: ['mcp', 'remove', 'angine']
   },
   claude: {
     command: 'claude',
     instructionFile: () => path.join(claudeDir(), 'CLAUDE.md'),
-    addArgs: ['mcp', 'add', '--scope', 'user', '--transport', 'stdio', 'beacon', '--', process.execPath, bin, 'mcp', '--agent', 'claude'],
-    removeArgs: ['mcp', 'remove', '--scope', 'user', 'beacon']
+    addArgs: ['mcp', 'add', '--scope', 'user', '--transport', 'stdio', 'angine', '--', process.execPath, bin, 'mcp', '--agent', 'claude'],
+    removeArgs: ['mcp', 'remove', '--scope', 'user', 'angine']
   }
 };
 function atomicWrite(file: string, content: string): void {
@@ -75,7 +75,7 @@ function installInstructions(file: string, previousFile?: string): void {
   const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
   const changed = managedContent(current, guidance);
   if (changed !== current) {
-    if (fs.existsSync(file) && !current.includes(start)) fs.copyFileSync(file, `${file}.beacon-backup-${Date.now()}`);
+    if (fs.existsSync(file) && !current.includes(start)) fs.copyFileSync(file, `${file}.angine-backup-${Date.now()}`);
     atomicWrite(file, changed);
   }
   if (previousFile && previousFile !== file && fs.existsSync(previousFile)) removeInstructions(previousFile);
@@ -90,7 +90,7 @@ export function codexApprovalContent(content: string, replacement: string): stri
   if ((a < 0) !== (b < 0) || (a >= 0 && (b < a || content.indexOf(approvalStart, a + approvalStart.length) >= 0 || content.indexOf(approvalEnd, b + approvalEnd.length) >= 0)))
     throw new Error('Ambiguous Angine approval markers');
   const unmanaged = a >= 0 ? content.slice(0, a) + content.slice(b + approvalEnd.length) : content;
-  if (replacement && /^\s*\[mcp_servers\.beacon\.tools\.(sync_project|update_tasks)\]\s*$/m.test(unmanaged))
+  if (replacement && /^\s*\[mcp_servers\.angine\.tools\.(sync_project|update_tasks)\]\s*$/m.test(unmanaged))
     throw new Error('Existing Angine tool approval policy is not managed by this installation');
   return a >= 0 ? content.slice(0, a) + replacement + content.slice(b + approvalEnd.length)
     : replacement ? `${content.trimEnd()}\n\n${replacement}\n` : content;
@@ -100,7 +100,7 @@ function installCodexApprovals(): void {
   const current = fs.readFileSync(file, 'utf8');
   const changed = codexApprovalContent(current, approvalBlock);
   if (changed !== current) {
-    if (!current.includes(approvalStart)) fs.copyFileSync(file, `${file}.beacon-backup-${Date.now()}`);
+    if (!current.includes(approvalStart)) fs.copyFileSync(file, `${file}.angine-backup-${Date.now()}`);
     atomicWrite(file, changed);
   }
 }
@@ -126,8 +126,8 @@ export function setup(requested = 'all'): { installed: AgentId[]; skipped: Agent
       continue;
     }
     const prior = record.integrations[agent];
-    const get = run(integration.command, ['mcp', 'get', 'beacon']);
-    if (get.status === 0 && !prior?.mcpInstalled) throw new Error(`${agent} already has an MCP server named beacon; refusing to replace it`);
+    const get = run(integration.command, ['mcp', 'get', 'angine']);
+    if (get.status === 0 && !prior?.mcpInstalled) throw new Error(`${agent} already has an MCP server named angine; refusing to replace it`);
     if (get.status === 0 && !get.stdout?.includes(prior!.bin)) throw new Error(`${agent} Angine MCP no longer points to this installation`);
     if (get.status === 0 && prior!.bin !== bin) {
       const removed = run(integration.command,integration.removeArgs);
@@ -139,7 +139,7 @@ export function setup(requested = 'all'): { installed: AgentId[]; skipped: Agent
       }
     }
     if (get.status !== 0) {
-      if (agent === 'codex' && fs.existsSync(codexConfigPath())) fs.copyFileSync(codexConfigPath(), `${codexConfigPath()}.beacon-backup-${Date.now()}`);
+      if (agent === 'codex' && fs.existsSync(codexConfigPath())) fs.copyFileSync(codexConfigPath(), `${codexConfigPath()}.angine-backup-${Date.now()}`);
       const add = run(integration.command, integration.addArgs);
       if (add.status !== 0) throw new Error(add.stderr || `Could not configure ${agent} MCP`);
     }
@@ -162,7 +162,7 @@ export function uninstall(): { removed: AgentId[] } {
     if (info.instructionsFile && fs.existsSync(info.instructionsFile)) removeInstructions(info.instructionsFile);
     if (agent === 'codex') removeCodexApprovals();
     if (info.mcpInstalled && available(agent)) {
-      const get = run(integration.command, ['mcp', 'get', 'beacon']);
+      const get = run(integration.command, ['mcp', 'get', 'angine']);
       if (get.status === 0 && get.stdout?.includes(info.bin)) {
         const remove = run(integration.command, integration.removeArgs);
         if (remove.status !== 0) throw new Error(remove.stderr || `Could not remove ${agent} MCP`);
@@ -184,7 +184,7 @@ export function doctor(): Array<{ name: string; ok: boolean; detail: string }> {
     if (!cli) continue;
     const file = integration.instructionFile();
     checks.push({ name: `${agent} guidance`, ok: fs.existsSync(file) && fs.readFileSync(file, 'utf8').includes(start), detail: file });
-    const get = run(integration.command, ['mcp', 'get', 'beacon']);
+    const get = run(integration.command, ['mcp', 'get', 'angine']);
     checks.push({ name: `${agent} MCP`, ok: get.status === 0 && Boolean(record.integrations[agent]), detail: get.status === 0 ? 'configured' : 'missing' });
     if (agent === 'codex' && record.integrations.codex) {
       const config = fs.existsSync(codexConfigPath()) ? fs.readFileSync(codexConfigPath(), 'utf8') : '';

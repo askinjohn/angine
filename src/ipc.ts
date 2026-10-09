@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { runtimePath, socketPath } from './paths.js';
 import type { DaemonStatus } from './types.js';
 
-const bin = fileURLToPath(new URL('../bin/beacon.js', import.meta.url));
-export function isBeaconDaemonCommand(command: string, binPath: string): boolean {
+const bin = fileURLToPath(new URL('../bin/angine.js', import.meta.url));
+export function isAngineDaemonCommand(command: string, binPath: string): boolean {
   const suffix = ` ${binPath} daemon`;
   const trimmed = command.trim();
   if (!trimmed.endsWith(suffix)) return false;
@@ -28,7 +28,7 @@ export async function restartDaemon(): Promise<DaemonStatus> {
     // Older daemons do not return their PID. Verify the process before stopping it.
     if (process.platform === 'win32') throw new Error('Close the older Angine daemon, then run angine again');
     const command = execFileSync('ps', ['-p', String(runtime.pid), '-o', 'command='], { encoding: 'utf8' });
-    if (!isBeaconDaemonCommand(command, bin)) throw new Error('The recorded process is not this Angine daemon');
+    if (!isAngineDaemonCommand(command, bin)) throw new Error('The recorded process is not this Angine daemon');
   }
   process.kill(runtime.pid, 'SIGTERM');
   for (let attempt = 0; attempt < 50; attempt++) {

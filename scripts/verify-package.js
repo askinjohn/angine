@@ -14,7 +14,7 @@ if(process.platform==='win32') throw new Error('This release smoke check current
 const home=fs.mkdtempSync(path.join(os.tmpdir(),'angine-package-check-'));
 const prefix=path.join(home,'install'),data=path.join(home,'data'),fakeBin=path.join(home,'commands');
 const clients=[];
-const env={...process.env,BEACON_HOME:data,CODEX_HOME:path.join(home,'codex'),CLAUDE_CONFIG_DIR:path.join(home,'claude')};
+const env={...process.env,ANGINE_HOME:data,CODEX_HOME:path.join(home,'codex'),CLAUDE_CONFIG_DIR:path.join(home,'claude')};
 delete env.CODEX_THREAD_ID;delete env.CODEX_SESSION_ID;
 let installed;
 try {
@@ -23,13 +23,13 @@ try {
   if(process.env.ANGINE_RELEASE_OFFLINE==='1') installArgs.push('--offline');
   execFileSync('npm',[...installArgs,archive],{stdio:'pipe',timeout:120000});
   installed=path.join(prefix,'lib','node_modules','angine');
-  const cli=path.join(installed,'dist','bin','beacon.js');
+  const cli=path.join(installed,'dist','bin','angine.js');
   const manifest=JSON.parse(fs.readFileSync(path.join(installed,'package.json')));
   assert.equal(manifest.name,'angine');assert.equal(manifest.license,'MIT');
   assert.equal(manifest.repository.url,'git+https://github.com/askinjohn/angine.git');
   assert.equal(fs.existsSync(path.join(installed,'ui','dist','favicon.svg')),true);
   assert.equal(execFileSync(path.join(prefix,'bin','angine'),['--version'],{encoding:'utf8'}).trim(),`Angine ${manifest.version}`);
-  assert.equal(execFileSync(path.join(prefix,'bin','beacon'),['--version'],{encoding:'utf8'}).trim(),`Angine ${manifest.version}`);
+  assert.deepEqual(Object.keys(manifest.bin),['angine']);
   fs.mkdirSync(fakeBin,{recursive:true});
   for(const agent of ['codex','claude']) {
     const stateFile=path.join(home,`${agent}-integration.json`);
@@ -63,7 +63,7 @@ else process.exitCode=1;
   const sessionResponse=await fetch(`${base()}/api/dashboard/session`,{signal:AbortSignal.timeout(5000)});
   assert.equal(sessionResponse.ok,true);
   let cookie=sessionResponse.headers.get('set-cookie').split(';')[0];
-  const edit=async(operation,input)=>fetchJson(`${base()}/api/dashboard/${operation}`,{method:'POST',headers:{'Content-Type':'application/json','X-Beacon-UI':'1',Origin:base(),Cookie:cookie},body:JSON.stringify(input)});
+  const edit=async(operation,input)=>fetchJson(`${base()}/api/dashboard/${operation}`,{method:'POST',headers:{'Content-Type':'application/json','X-Angine-UI':'1',Origin:base(),Cookie:cookie},body:JSON.stringify(input)});
   const profile=await edit('profiles',{key:'release-codex',name:'Release profile',agent:'codex',context:'Other',isDefault:false});
   assert.ok(Object.values(profile.state.profiles).some(p=>p.key==='release-codex'));
   const project={key:'release',name:'Release verification',workspacePath:home};

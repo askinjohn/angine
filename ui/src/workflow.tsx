@@ -13,18 +13,18 @@ const href = (kind: string, id?: string) => `#/${kind}${id ? `/${encodeURICompon
 function readLocal<T>(key: string, fallback: T): T { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch { return fallback; } }
 function writeLocal(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage may be unavailable */ } }
 export function useSavedFilters(section: string) {
-  const [sets, setSets] = useState<Record<string, Filters>>(() => readLocal('beacon-filters-v1', {}));
-  useEffect(() => writeLocal('beacon-filters-v1', sets), [sets]);
+  const [sets, setSets] = useState<Record<string, Filters>>(() => readLocal('angine-filters-v1', {}));
+  useEffect(() => writeLocal('angine-filters-v1', sets), [sets]);
   const filters = { ...defaults, ...sets[section] };
   const set = (patch: Partial<Filters>) => setSets(previous => ({ ...previous, [section]: { ...defaults, ...previous[section], ...patch } }));
   return { filters, set, reset: () => set({ ...defaults }), resetAll: () => setSets({}) };
 }
 export function usePreferences() {
   const [preferences, setPreferences] = useState<Preferences>(() => {
-    const value = readLocal<Preferences>('beacon-preferences-v1', { staleMinutes: 60, notifications: false });
+    const value = readLocal<Preferences>('angine-preferences-v1', { staleMinutes: 60, notifications: false });
     return { staleMinutes: [0,15,60,240,1440].includes(value.staleMinutes) ? value.staleMinutes : 60, notifications: value.notifications === true };
   });
-  useEffect(() => writeLocal('beacon-preferences-v1', preferences), [preferences]);
+  useEffect(() => writeLocal('angine-preferences-v1', preferences), [preferences]);
   return { preferences, setPreferences };
 }
 export function useNotifications(state: State | null, enabled: boolean) {
@@ -39,7 +39,7 @@ export function useNotifications(state: State | null, enabled: boolean) {
     const title = changes.length === 1 ? `Angine · Task ${changes[0].status}` : 'Angine · Work updated';
     const body = changes.length === 1 ? changes[0].title : [completed ? `${completed} completed` : '', blocked ? `${blocked} blocked` : ''].filter(Boolean).join(' · ');
     try {
-      const notification = new Notification(title, { body, tag: 'beacon-work-update' });
+      const notification = new Notification(title, { body, tag: 'angine-work-update' });
       notification.onclick = () => { window.focus(); location.hash = href('tasks', changes[0].id).slice(1); notification.close(); };
     } catch { /* notifications may be disabled by the operating system */ }
   }, [state, enabled]);

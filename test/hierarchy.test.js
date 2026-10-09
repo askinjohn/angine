@@ -8,10 +8,10 @@ import { normalizeHierarchy, isArchivedTask } from '../dist/src/hierarchy.js';
 import { notificationChanges } from '../dist/src/workflow.js';
 
 function isolated(run) {
-  const home=fs.mkdtempSync(path.join(os.tmpdir(),'beacon-hierarchy-'));
-  const previous=process.env.BEACON_HOME;process.env.BEACON_HOME=home;
+  const home=fs.mkdtempSync(path.join(os.tmpdir(),'angine-hierarchy-'));
+  const previous=process.env.ANGINE_HOME;process.env.ANGINE_HOME=home;
   try {const store=new Store();store.load();run(store,home);}
-  finally {if(previous===undefined) delete process.env.BEACON_HOME;else process.env.BEACON_HOME=previous;fs.rmSync(home,{recursive:true,force:true});}
+  finally {if(previous===undefined) delete process.env.ANGINE_HOME;else process.env.ANGINE_HOME=previous;fs.rmSync(home,{recursive:true,force:true});}
 }
 
 test('different legacy plans become missions in one active workspace project',()=>isolated((store,home)=>{

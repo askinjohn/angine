@@ -14,7 +14,7 @@ const taskStatus = z.enum(['todo', 'in_progress', 'blocked', 'completed', 'faile
 const sessionKey = crypto.randomUUID();
 const profileFlag = process.argv.indexOf('--profile');
 const agentFlag = process.argv.indexOf('--agent');
-const agent = agentName(agentFlag >= 0 ? process.argv[agentFlag + 1] : (process.env.BEACON_AGENT || 'external'));
+const agent = agentName(agentFlag >= 0 ? process.argv[agentFlag + 1] : (process.env.ANGINE_AGENT || 'external'));
 const server = new McpServer({ name: 'angine', version: serverVersion });
 const connectionInput = () => ({ ...nativeReporterIdentity(agent), reporterId:sessionKey, agent, version:serverVersion, protocolVersion, ...(profileFlag >= 0 ? {profileKey:process.argv[profileFlag + 1]} : {}) });
 let heartbeat: ReturnType<typeof setInterval> | undefined;

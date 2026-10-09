@@ -28,8 +28,8 @@ export async function startDaemon(): Promise<void> {
     Object.values(store.state.sessions).filter(s => s.reporterId === reporterId).map(s => s.lastSeenAt).sort().at(-1));
   const writeToken = httpWriteToken();
   const dashboard = createDashboardRouter(store);
-  let port = Number(process.env.BEACON_PORT || 4317);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid BEACON_PORT');
+  let port = Number(process.env.ANGINE_PORT || 4317);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid ANGINE_PORT');
   const clients = new Set<http.ServerResponse>();
   const httpServer = http.createServer((req, res) => {
     const host = req.headers.host || '';

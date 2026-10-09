@@ -12,7 +12,7 @@ npx tsc --noEmit -p ui/tsconfig.json
 npm run build
 ```
 
-For isolated runtime work, set `BEACON_HOME` to a temporary directory. Avoid changing your normal agent configuration during tests. Run `npm run dev` for the frontend development server.
+For isolated runtime work, set `ANGINE_HOME` to a temporary directory. Avoid changing your normal agent configuration during tests. Run `npm run dev` for the frontend development server.
 
 ## Changes
 

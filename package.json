@@ -4,8 +4,7 @@
   "description": "Local dashboard for agent-reported projects, tasks, progress, and blockers",
   "type": "module",
   "bin": {
-    "angine": "./dist/bin/beacon.js",
-    "beacon": "./dist/bin/beacon.js"
+    "angine": "./dist/bin/angine.js"
   },
   "files": [
     "dist",

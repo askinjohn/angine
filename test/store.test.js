@@ -6,9 +6,9 @@ import path from 'node:path';
 import { Store } from '../dist/src/store.js';
 
 test('plan and status events survive replay and redact likely secrets', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'beacon-test-'));
-  const prior = process.env.BEACON_HOME;
-  process.env.BEACON_HOME = home;
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'angine-test-'));
+  const prior = process.env.ANGINE_HOME;
+  process.env.ANGINE_HOME = home;
   try {
     const store = new Store(); store.load();
     const result = store.syncProject({ project: { key: 'auth', name: 'Authentication', workspacePath: home }, tasks: [
@@ -30,15 +30,15 @@ test('plan and status events survive replay and redact likely secrets', () => {
     const fromSnapshot = new Store(); fromSnapshot.load();
     assert.deepEqual(fromSnapshot.state, replayed.state);
   } finally {
-    if (prior === undefined) delete process.env.BEACON_HOME; else process.env.BEACON_HOME = prior;
+    if (prior === undefined) delete process.env.ANGINE_HOME; else process.env.ANGINE_HOME = prior;
     fs.rmSync(home, { recursive: true, force: true });
   }
 });
 
 test('plan reconciliation only removes explicit task keys', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'beacon-test-'));
-  const prior = process.env.BEACON_HOME;
-  process.env.BEACON_HOME = home;
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'angine-test-'));
+  const prior = process.env.ANGINE_HOME;
+  process.env.ANGINE_HOME = home;
   try {
     const store = new Store(); store.load();
     const project = { key: 'feature', name: 'Feature', workspacePath: home };
@@ -50,15 +50,15 @@ test('plan reconciliation only removes explicit task keys', () => {
     store.syncProject({ project, tasks: [], removedTaskKeys: ['b'] });
     assert.equal(store.state.tasks[result.taskIds.b], undefined);
   } finally {
-    if (prior === undefined) delete process.env.BEACON_HOME; else process.env.BEACON_HOME = prior;
+    if (prior === undefined) delete process.env.ANGINE_HOME; else process.env.ANGINE_HOME = prior;
     fs.rmSync(home, { recursive: true, force: true });
   }
 });
 
 test('a torn final event line is quarantined and earlier events remain usable', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'beacon-test-'));
-  const prior = process.env.BEACON_HOME;
-  process.env.BEACON_HOME = home;
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'angine-test-'));
+  const prior = process.env.ANGINE_HOME;
+  process.env.ANGINE_HOME = home;
   try {
     const store = new Store(); store.load();
     store.syncProject({ project: { key: 'safe', name: 'Safe', workspacePath: home }, tasks: [{ key: 'one', title: 'One', status: 'todo' }] });
@@ -68,15 +68,15 @@ test('a torn final event line is quarantined and earlier events remain usable', 
     assert.equal(Object.keys(recovered.state.projects).length, 1);
     assert.ok(fs.readdirSync(path.dirname(log)).some(file => file.includes('.corrupt-')));
   } finally {
-    if (prior === undefined) delete process.env.BEACON_HOME; else process.env.BEACON_HOME = prior;
+    if (prior === undefined) delete process.env.ANGINE_HOME; else process.env.ANGINE_HOME = prior;
     fs.rmSync(home, { recursive: true, force: true });
   }
 });
 
 test('different agents share a project while task attribution follows the latest reporter', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'beacon-test-'));
-  const prior = process.env.BEACON_HOME;
-  process.env.BEACON_HOME = home;
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'angine-test-'));
+  const prior = process.env.ANGINE_HOME;
+  process.env.ANGINE_HOME = home;
   try {
     const store = new Store(); store.load();
     const result = store.syncProject({ agent: 'codex', sessionKey: 'first', project: {
@@ -88,15 +88,15 @@ test('different agents share a project while task attribution follows the latest
     assert.deepEqual(new Set(Object.values(store.state.sessions).map(s => s.agent)), new Set(['codex', 'claude']));
     assert.throws(() => store.syncProject({ agent: 'bad agent!', project: { name: 'Bad', workspacePath: home }, tasks: [] }), /Agent must/);
   } finally {
-    if (prior === undefined) delete process.env.BEACON_HOME; else process.env.BEACON_HOME = prior;
+    if (prior === undefined) delete process.env.ANGINE_HOME; else process.env.ANGINE_HOME = prior;
     fs.rmSync(home, { recursive: true, force: true });
   }
 });
 
 test('native session and child-agent identifiers are linked only when supplied', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'beacon-test-'));
-  const prior = process.env.BEACON_HOME;
-  process.env.BEACON_HOME = home;
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'angine-test-'));
+  const prior = process.env.ANGINE_HOME;
+  process.env.ANGINE_HOME = home;
   try {
     const store = new Store(); store.load();
     const project = { key: 'agents', name: 'Agents', workspacePath: home };
@@ -123,15 +123,15 @@ test('native session and child-agent identifiers are linked only when supplied',
     assert.equal(child.agentId, 'root/review');
     assert.throws(() => store.syncProject({ agent: 'codex', parentAgentId: 'root', project, tasks: [] }), /Agent ID is required/);
   } finally {
-    if (prior === undefined) delete process.env.BEACON_HOME; else process.env.BEACON_HOME = prior;
+    if (prior === undefined) delete process.env.ANGINE_HOME; else process.env.ANGINE_HOME = prior;
     fs.rmSync(home, { recursive: true, force: true });
   }
 });
 
 test('progress updates persist, reject invalid percentages, and reset when work reopens', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'beacon-test-'));
-  const prior = process.env.BEACON_HOME;
-  process.env.BEACON_HOME = home;
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'angine-test-'));
+  const prior = process.env.ANGINE_HOME;
+  process.env.ANGINE_HOME = home;
   try {
     const store = new Store(); store.load();
     const result = store.syncProject({ agent: 'codex', sessionKey: 'progress', project: {
@@ -156,7 +156,7 @@ test('progress updates persist, reject invalid percentages, and reset when work 
     const replayed = new Store(); replayed.load();
     assert.deepEqual(replayed.state, store.state);
   } finally {
-    if (prior === undefined) delete process.env.BEACON_HOME; else process.env.BEACON_HOME = prior;
+    if (prior === undefined) delete process.env.ANGINE_HOME; else process.env.ANGINE_HOME = prior;
     fs.rmSync(home, { recursive: true, force: true });
   }
 });

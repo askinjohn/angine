@@ -22,10 +22,10 @@ test('dashboard changes require same-origin browser session and valid JSON', () 
   const session = request('session','GET',{'sec-fetch-site':'same-origin'});
   assert.equal(session.status,200);
   assert.match(session.headers['Set-Cookie'],/HttpOnly; SameSite=Strict/);
-  const headers = { origin:'http://127.0.0.1:4317','x-beacon-ui':'1','content-type':'application/json',cookie:session.headers['Set-Cookie'].split(';')[0] };
+  const headers = { origin:'http://127.0.0.1:4317','x-angine-ui':'1','content-type':'application/json',cookie:session.headers['Set-Cookie'].split(';')[0] };
   assert.equal(request('archive','POST',{}).status,403);
   assert.equal(request('archive','POST',{...headers,origin:'https://elsewhere.test'}).status,403);
-  assert.equal(request('archive','POST',{...headers,cookie:'beacon_dashboard=é'.repeat(64)}).status,403);
+  assert.equal(request('archive','POST',{...headers,cookie:'angine_dashboard=é'.repeat(64)}).status,403);
   assert.equal(request('archive','POST',{...headers,'content-type':'text/plain'}).status,415);
   assert.equal(request('archive','POST',headers,'{').status,400);
   assert.equal(request('archive','POST',headers,'x'.repeat(65537)).status,413);

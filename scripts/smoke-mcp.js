@@ -1,8 +1,8 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-const client = new Client({ name: 'beacon-smoke', version: '0.1.0' });
-const transport = new StdioClientTransport({ command: process.execPath, args: [new URL('../dist/bin/beacon.js', import.meta.url).pathname, 'mcp', '--agent', process.argv[2] || 'codex'] });
+const client = new Client({ name: 'angine-smoke', version: '0.1.0' });
+const transport = new StdioClientTransport({ command: process.execPath, args: [new URL('../dist/bin/angine.js', import.meta.url).pathname, 'mcp', '--agent', process.argv[2] || 'codex'] });
 await client.connect(transport);
 try {
   const tools = await client.listTools();

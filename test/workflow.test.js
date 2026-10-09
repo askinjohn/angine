@@ -6,10 +6,10 @@ import path from 'node:path';
 import { Store } from '../dist/src/store.js';
 import { isStale, notificationChanges } from '../dist/src/workflow.js';
 function isolated(run) {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'beacon-workflow-'));
-  const prior = process.env.BEACON_HOME; process.env.BEACON_HOME = home;
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'angine-workflow-'));
+  const prior = process.env.ANGINE_HOME; process.env.ANGINE_HOME = home;
   try { const store = new Store(); store.load(); run(store,home); }
-  finally { if (prior === undefined) delete process.env.BEACON_HOME; else process.env.BEACON_HOME = prior; fs.rmSync(home,{recursive:true,force:true}); }
+  finally { if (prior === undefined) delete process.env.ANGINE_HOME; else process.env.ANGINE_HOME = prior; fs.rmSync(home,{recursive:true,force:true}); }
 }
 test('archive preserves history and reporting does not restore archived work', () => isolated((store,home) => {
   const project = {key:'archive',name:'Archive',workspacePath:home};

@@ -15,12 +15,12 @@ export function createDashboardRouter(store: Store) {
   return (req: http.IncomingMessage, res: http.ServerResponse, url: URL): boolean => {
     if (url.pathname === '/api/dashboard/session' && req.method === 'GET') {
       if (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin') { respond(res, { error: 'Same-origin request required' }, 403); return true; }
-      res.setHeader('Set-Cookie', `beacon_dashboard=${session}; HttpOnly; SameSite=Strict; Path=/api/dashboard`);
+      res.setHeader('Set-Cookie', `angine_dashboard=${session}; HttpOnly; SameSite=Strict; Path=/api/dashboard`);
       respond(res, { ready: true }); return true;
     }
     if (req.method !== 'POST' || !['/api/dashboard/archive', '/api/dashboard/profiles', '/api/dashboard/task-details'].includes(url.pathname)) return false;
-    const cookie = (req.headers.cookie || '').split(';').map(item => item.trim()).find(item => item.startsWith('beacon_dashboard='))?.slice('beacon_dashboard='.length) || '';
-    if (req.headers.origin !== url.origin || req.headers['x-beacon-ui'] !== '1' || !equalSecret(cookie, session)) {
+    const cookie = (req.headers.cookie || '').split(';').map(item => item.trim()).find(item => item.startsWith('angine_dashboard='))?.slice('angine_dashboard='.length) || '';
+    if (req.headers.origin !== url.origin || req.headers['x-angine-ui'] !== '1' || !equalSecret(cookie, session)) {
       respond(res, { error: 'Dashboard session required. Reload Angine and try again.' }, 403); return true;
     }
     if (!String(req.headers['content-type'] || '').startsWith('application/json')) { respond(res, { error: 'JSON required' }, 415); return true; }

@@ -98,7 +98,7 @@ For Codex, setup installs a removable approval policy for Angine's two reporting
 
 The hierarchy is **Project → Missions → Tasks**. For example, a product contains a mission to improve reporting, which contains tasks to add connection checks and verify updates.
 
-Angine stores history and configuration in `~/.beacon`. The dashboard binds to `127.0.0.1`, starting at port 4317; use `angine status` for the active URL. MCP and CLI updates use a local Unix socket or Windows named pipe. HTTP reporting requires a local write token; dashboard edits require a same-origin browser session.
+Angine stores history and configuration in `~/.angine`. The dashboard binds to `127.0.0.1`, starting at port 4317; use `angine status` for the active URL. MCP and CLI updates use a local Unix socket or Windows named pipe. HTTP reporting requires a local write token; dashboard edits require a same-origin browser session.
 
 Angine makes no outbound network requests during normal operation. Saved filters and notification preferences live in browser storage. Agent reports and optional owner details are visible in the local dashboard; avoid putting sensitive content in metadata.
 
@@ -125,21 +125,15 @@ npm install
 npm test
 npx tsc --noEmit -p ui/tsconfig.json
 npm run build
-node dist/bin/beacon.js open
+node dist/bin/angine.js open
 ```
 
 The UI build uses Vite 7; development requires a compatible Node release (20.19+ or 22.12+). Published packages include compiled server code and dashboard assets; users do not need TypeScript or Vite.
 
-Use `BEACON_HOME` for isolated storage, `BEACON_PORT` for a dashboard port, and `CODEX_HOME` for isolated Codex configuration tests.
+Use `ANGINE_HOME` for isolated storage, `ANGINE_PORT` for a dashboard port, and `CODEX_HOME` for isolated Codex configuration tests.
 
 See [release notes](CHANGELOG.md) and the [release checklist](docs/releasing.md).
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-## Upgrading from Beacon
-
-Angine is the new product and package name. The `beacon` command remains a compatibility alias. Existing history still uses `~/.beacon`, existing `BEACON_HOME` / `BEACON_PORT` settings still work, and saved browser filters are retained. Agent integrations keep the managed MCP connection name `beacon` so existing instructions and approvals continue to work.
-
-After installing Angine, run `angine setup` to update managed connections to the new installation, then `angine restart` and restart your agent sessions. No data-folder move is needed.

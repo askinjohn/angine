@@ -1,8 +1,14 @@
 # Angine
 
-**Follow your agents’ work.**
+**One local dashboard for work reported by your coding agents.**
 
-Angine is a local dashboard for **agent-reported work**. Connected agents send project missions, task updates, progress, and blockers while they work. You follow their work in one place instead of manually maintaining a status board.
+[![npm version](https://img.shields.io/npm/v/angine)](https://www.npmjs.com/package/angine)
+[![CI](https://github.com/askinjohn/angine/actions/workflows/ci.yml/badge.svg)](https://github.com/askinjohn/angine/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+Working with Claude Code and Codex across several projects? Angine brings their reported goals, tasks, progress, and blockers into one place. Agents send updates through MCP while they work, and you follow them in your browser.
+
+**Local storage · Open source · Claude Code and Codex setup · Shared missions across agents**
 
 **v0.1.0 is an early local MVP.** Angine relies on reports from connected agents; it does not independently observe their tool calls, file changes, or transcripts.
 
@@ -10,24 +16,36 @@ Angine is a local dashboard for **agent-reported work**. Connected agents send p
 
 Requires Node.js 20 or later and a supported agent CLI installed locally.
 
-Once the package is published to npm:
-
 ```bash
 npm install -g angine
-angine setup
-```
-
-To try the source checkout before publication:
-
-```bash
-npm install
-npm install -g .
 angine setup
 ```
 
 `angine setup` configures detected Codex and Claude Code CLIs, starts the Angine server, and opens the dashboard. Restart your agent sessions after setup so they load the integration. You can configure just one with `angine setup codex` or `angine setup claude`.
 
 Installing the package alone does not start Angine or configure an agent. After setup, agent reports start the server automatically when needed. Run `angine` anytime to reopen the dashboard.
+
+## What you can see
+
+| View | What it answers |
+| --- | --- |
+| Projects and missions | Which goals are running across my repositories? |
+| Tasks and board | What is complete, in progress, or blocked? |
+| Needs attention | Which work has failed or stopped reporting recently? |
+| Agents and sessions | Which reporter is connected, and which work belongs to it? |
+
+### Project → Missions → Tasks
+
+```text
+My app
+├── Improve checkout
+│   ├── Validate payment amount — Claude Code
+│   └── Verify checkout flow — Codex
+└── Update documentation
+    └── Write the setup guide — Claude Code
+```
+
+A project is a workspace; a mission is a goal; a task is a step toward that goal. Multiple agents can contribute to the same mission when they report the same workspace and mission key.
 
 ## How it works
 
@@ -52,7 +70,7 @@ Angine collects short metadata: titles, statuses, progress, notes, timestamps, a
 - **Blockers:** reason, next action, and optional owner.
 - **Archive:** hide projects or individual missions and restore them without deleting their tasks or history.
 - **Stale indicators:** flag active work with no recent report; threshold is configurable and does not change task status.
-- **Notifications:** optional desktop alerts for existing tasks that finish or become blocked. A Angine browser tab must remain open, and browser/OS permission must be allowed.
+- **Notifications:** optional desktop alerts for existing tasks that finish or become blocked. An Angine browser tab must remain open, and browser/OS permission must be allowed.
 
 Task progress is reported explicitly. Unknown active progress displays “Not reported”; completed tasks show 100% and to-do tasks show 0%. Mission progress is the share of non-cancelled tasks completed, not an estimate of effort. Projects stay active as long-lived containers; completing their current missions does not close them.
 
@@ -70,11 +88,16 @@ command: angine
 args: mcp --agent claude --profile claude-default
 ```
 
-Replace the agent name and profile key with your own. Creating a profile does not install, connect, or start the agent. Additional agents can report through MCP, CLI, or HTTP; the Grok profile is not an automatic Grok integration.
+Replace the agent name and profile key with your own. Creating a profile does not install, connect, or start the agent. Additional agents can report through MCP, CLI, or HTTP. Adding a profile for another agent does not create an integration for it.
 
 Projects group work by canonical local workspace path. Two agents share a mission by reporting that workspace and the same stable mission key. Use distinct task keys within each mission; the same task key may appear in other missions. Parent/child agent relationships require supplied identifiers; Angine does not invent them. Codex native session IDs are populated when its runtime makes them available to the reporter; other identity fields are optional.
 
+<details>
+<summary>Reporter connections and heartbeat details</summary>
+
 In Agents, expand **Connect this profile** to copy its MCP configuration. The connections panel shows whether the reporter is reachable and when work was last reported. Heartbeats run every 25 seconds; after 75 seconds without one, the connection is marked disconnected. They do not refresh task timestamps or change task statuses. Connection diagnostics are in memory and counters reset when the Angine server restarts. Last known report times are restored when an exact reporter ID matches saved session history. Older reporters and CLI/HTTP-only reports have unknown connection status until an updated MCP reporter connects.
+
+</details>
 
 See the [reporting protocol](docs/protocol.md) for payloads and integration examples.
 
@@ -120,8 +143,12 @@ If work does not appear, inspect **Agents → Connections**, ask the agent to us
 
 ## Development and release
 
+For contributors:
+
 ```bash
-npm install
+git clone https://github.com/askinjohn/angine.git
+cd angine
+npm ci
 npm test
 npx tsc --noEmit -p ui/tsconfig.json
 npm run build
@@ -132,7 +159,13 @@ The UI build uses Vite 7; development requires a compatible Node release (20.19+
 
 Use `ANGINE_HOME` for isolated storage, `ANGINE_PORT` for a dashboard port, and `CODEX_HOME` for isolated Codex configuration tests.
 
-See [release notes](CHANGELOG.md) and the [release checklist](docs/releasing.md).
+See the [contribution guide](CONTRIBUTING.md), [release notes](CHANGELOG.md), and [release checklist](docs/releasing.md).
+
+## Feedback
+
+Angine is an early MVP. If setup fails or the dashboard is unclear, [open an issue](https://github.com/askinjohn/angine/issues) with your OS, Node.js version, agent type, and a description of what happened. Remove private information from any screenshots or logs you share.
+
+Useful feedback: did your first mission appear, were the statuses accurate, and what did you need to understand at a glance?
 
 ## License
 

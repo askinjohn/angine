@@ -176,7 +176,7 @@ export class Store {
     const root:Project = {id:rootId,key:input.mission ? shortText(input.project.key,160,'Project key') || oldRoot?.key || workspaceName(workspace) : oldRoot?.key || workspaceName(workspace),
       name:input.mission ? shortText(input.project.name,160,'Project name',true) : oldRoot?.name || workspaceName(workspace),
       description:input.mission ? shortText(input.project.description,2048,'Project description') || oldRoot?.description : oldRoot?.description,
-      workspaceId:oldRoot?.workspaceId || workspace.id,status:'active',createdAt:oldRoot?.createdAt || now(),updatedAt:now(),archivedAt:oldRoot?.archivedAt};
+      color:oldRoot?.color,workspaceId:oldRoot?.workspaceId || workspace.id,status:'active',createdAt:oldRoot?.createdAt || now(),updatedAt:now(),archivedAt:oldRoot?.archivedAt};
     const changes: Change[] = [];
     const reporterSessionId = this.touchSession(input, workspace.id, project, changes);
     if (JSON.stringify(this.state.workspaces[workspace.id]) !== JSON.stringify(workspace)) changes.unshift({ type: 'workspace.upserted', payload: workspace });
@@ -278,6 +278,18 @@ export class Store {
     if (!project || typeof archived !== 'boolean') throw new Error('Invalid project or archive state');
     const next = { ...project, archivedAt: archived ? (project.archivedAt || now()) : undefined };
     this.commit([{ type: mission ? 'mission.updated' : 'project.updated', projectId: mission?.projectId || projectId, ...(mission ? {missionId:mission.id} : {}), payload: next }]);
+    return next;
+  }
+  setColor(input: { projectId?: string; missionId?: string; color: string | null }): Project | Mission {
+    if (!input || typeof input !== 'object' || Boolean(input.projectId) === Boolean(input.missionId)) throw new Error('Provide exactly one projectId or missionId');
+    if (input.projectId !== undefined && typeof input.projectId !== 'string' || input.missionId !== undefined && typeof input.missionId !== 'string') throw new Error('Project and mission IDs must be text');
+    if (input.color !== null && (typeof input.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(input.color))) throw new Error('Color must be a six-digit hex value or null to reset');
+    const projectId = input.projectId && (this.state.projectAliases?.[input.projectId] || input.projectId);
+    const item = input.missionId ? this.state.missions[input.missionId] : this.state.projects[projectId!];
+    if (!item) throw new Error('Project or mission not found');
+    const next = {...item,color:input.color?.toLowerCase() || undefined};
+    this.commit([{type:input.missionId ? 'mission.updated' : 'project.updated',payload:next,
+      projectId:input.missionId ? (item as Mission).projectId : item.id,...(input.missionId ? {missionId:item.id} : {})}]);
     return next;
   }
   saveProfile(input: Partial<AgentProfile>): AgentProfile {

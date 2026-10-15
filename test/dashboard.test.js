@@ -7,6 +7,7 @@ test('dashboard changes require same-origin browser session and valid JSON', () 
   const calls = [];
   const store = {
     archiveProject: (...args) => calls.push(['archive', ...args]),
+    setColor: input => calls.push(['color', input]),
     saveProfile: input => calls.push(['profile', input]),
     editTaskDetails: (...args) => calls.push(['details', ...args]),
     view: () => ({ seq: calls.length }),
@@ -34,5 +35,8 @@ test('dashboard changes require same-origin browser session and valid JSON', () 
   assert.equal(request('profiles','POST',headers,JSON.stringify({name:'Work'})).body.state.seq,2);
   assert.equal(request('task-details','POST',headers,JSON.stringify({taskId:'t',relatedTaskKeys:['a']})).status,200);
   assert.deepEqual(calls,[['archive','p',true],['profile',{name:'Work'}],['details','t',{taskId:'t',relatedTaskKeys:['a']}]]);
+  assert.equal(request('color','POST',{},JSON.stringify({projectId:'p',color:'#123456'})).status,403);
+  assert.equal(request('color','POST',headers,JSON.stringify({projectId:'p',color:'#123456'})).status,200);
+  assert.deepEqual(calls.at(-1),['color',{projectId:'p',color:'#123456'}]);
   assert.equal(equalSecret('é','aa'),false);
 });

@@ -5,7 +5,7 @@ export const projectIdForWorkspace = (id: string): string => `prj_${id}`;
 export const workspaceName = (workspace?: Workspace): string => workspace?.path.split(/[\\/]/).filter(Boolean).pop() || 'Project';
 export function projectFromMission(mission: Mission, workspace?: Workspace, previous?: Project): Project {
   return JSON.parse(JSON.stringify({ id:mission.projectId,key:previous?.key || workspaceName(workspace),workspaceId:mission.workspaceId,
-    name:previous?.name || workspaceName(workspace),description:previous?.description,status:'active',
+    name:previous?.name || workspaceName(workspace),description:previous?.description,color:previous?.color,status:'active',
     createdAt:previous && previous.createdAt < mission.createdAt ? previous.createdAt : mission.createdAt,
     updatedAt:previous && previous.updatedAt > mission.updatedAt ? previous.updatedAt : mission.updatedAt,
     archivedAt:previous?.archivedAt })) as Project;

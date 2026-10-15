@@ -3,10 +3,12 @@ export type MissionStatus = 'planned' | 'running' | 'blocked' | 'completed' | 'f
 
 export interface Workspace { id: string; path: string; repositoryId?: string; repositoryPath?: string; branch?: string }
 export interface Project {
+  color?: string;
   id: string; key: string; workspaceId: string; name: string; description?: string;
   status: 'active'; createdAt: string; updatedAt: string; archivedAt?: string;
 }
 export interface Mission {
+  color?: string;
   id: string; key: string; workspaceId: string; name: string; description?: string;
   projectId: string;
   status: MissionStatus; createdAt: string; updatedAt: string; completedAt?: string;

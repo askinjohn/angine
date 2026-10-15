@@ -59,7 +59,7 @@ Angine collects short metadata: titles, statuses, progress, notes, timestamps, a
 ## Included in the MVP
 
 - **Projects:** one container per local workspace, showing mission counts, running work, agents, and attention needed.
-- **Missions:** consistent color borders identify the same mission in lists, task pages, and board cards; goals within a project, grouped by status, with task completion percentages and separately scrolling sections.
+- **Missions:** project colors carry through to missions and tasks, with optional mission overrides in each detail page’s color control; goals within a project, grouped by status, with task completion percentages and separately scrolling sections.
 - **Tasks:** status groups, reported progress, project and mission filters, and dedicated detail pages.
 - **Board:** status columns with independent vertical scrolling.
 - **Filters:** search, agent, profile, project, mission, status, and stale activity; saved separately for each view in your browser.

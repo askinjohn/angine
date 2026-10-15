@@ -18,7 +18,7 @@ export function createDashboardRouter(store: Store) {
       res.setHeader('Set-Cookie', `angine_dashboard=${session}; HttpOnly; SameSite=Strict; Path=/api/dashboard`);
       respond(res, { ready: true }); return true;
     }
-    if (req.method !== 'POST' || !['/api/dashboard/archive', '/api/dashboard/profiles', '/api/dashboard/task-details'].includes(url.pathname)) return false;
+    if (req.method !== 'POST' || !['/api/dashboard/archive', '/api/dashboard/profiles', '/api/dashboard/task-details', '/api/dashboard/color'].includes(url.pathname)) return false;
     const cookie = (req.headers.cookie || '').split(';').map(item => item.trim()).find(item => item.startsWith('angine_dashboard='))?.slice('angine_dashboard='.length) || '';
     if (req.headers.origin !== url.origin || req.headers['x-angine-ui'] !== '1' || !equalSecret(cookie, session)) {
       respond(res, { error: 'Dashboard session required. Reload Angine and try again.' }, 403); return true;
@@ -31,6 +31,7 @@ export function createDashboardRouter(store: Store) {
       try {
         const input = JSON.parse(body);
         if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid dashboard request');
+        if (url.pathname.endsWith('/color')) store.setColor(input);
         if (url.pathname.endsWith('/archive')) store.archiveProject(input.projectId, input.archived);
         if (url.pathname.endsWith('/profiles')) store.saveProfile(input);
         if (url.pathname.endsWith('/task-details')) store.editTaskDetails(input.taskId, input);

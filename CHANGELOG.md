@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a live React Flow graph tab with pan/zoom, draggable nodes, minimap, filtering, inherited colors, and saved node positions.
+
 - Group Git worktrees under their shared repository while retaining workspace paths and observed branches.
 - Merge existing worktree projects with a backup; preserve mission/task/session IDs, archived work, project links, and event history.
 - Add a default color per project, inherited by missions and tasks, with editable project colors and optional mission overrides.

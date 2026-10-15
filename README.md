@@ -30,6 +30,7 @@ Installing the package alone does not start Angine or configure an agent. After 
 | View | What it answers |
 | --- | --- |
 | Projects and missions | Which goals are running across my repositories? |
+| Graph | How do projects, missions, and tasks connect on a live canvas? |
 | Tasks and board | What is complete, in progress, or blocked? |
 | Needs attention | Which work has failed or stopped reporting recently? |
 | Agents and sessions | Which reporter is connected, and which work belongs to it? |
@@ -62,6 +63,7 @@ Angine collects short metadata: titles, statuses, progress, notes, timestamps, a
 - **Missions:** project colors carry through to missions and tasks, with optional mission overrides in each detail page’s color control; goals within a project, grouped by status, with task completion percentages and separately scrolling sections.
 - **Tasks:** status groups, reported progress, project and mission filters, and dedicated detail pages.
 - **Board:** status columns with independent vertical scrolling.
+- **Graph:** a React Flow canvas with Project → Mission → Task connections, drag-to-arrange nodes, pan/zoom, minimap, filters, and links to details. Reports add nodes automatically. Node positions are saved in this browser; Auto arrange resets the layout. Connections reflect reported hierarchy and are not edited by dragging nodes.
 - **Filters:** search, agent, profile, project, mission, status, and stale activity; saved separately for each view in your browser.
 - **Connection health:** automatic MCP reporter heartbeats, accepted/rejected report counts, a connection check tool, and explicit server update notices.
 - **Needs attention:** a compact summary of blocked, failed, stale, and tracked disconnected work; detailed diagnostics stay expandable.

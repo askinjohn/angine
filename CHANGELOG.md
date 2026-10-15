@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased
+
+- Group Git worktrees under their shared repository while retaining workspace paths and observed branches.
+- Merge existing worktree projects with a backup; preserve mission/task/session IDs, archived work, project links, and event history.
+- Add stable mission color borders across lists, task pages, and board cards.
+
 ## 0.1.0 — Initial local MVP
 
 - Project → Missions → Tasks, with workspace grouping, mission pages and filters, and automatic migration preserving IDs/history.

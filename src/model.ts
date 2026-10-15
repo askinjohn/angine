@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import type { Task, TaskStatus, MissionStatus, Workspace } from './types.js';
 
 export const taskStatuses = new Set<TaskStatus>(['todo', 'in_progress', 'blocked', 'completed', 'failed', 'cancelled']);
@@ -12,7 +14,18 @@ export function agentName(value: unknown): string {
 export const workspaceIdentity = (workspacePath: string): Workspace => {
   const realPath = fs.realpathSync(workspacePath);
   if (!fs.statSync(realPath).isDirectory()) throw new Error('Workspace must be a directory');
-  return { id: crypto.createHash('sha256').update(realPath).digest('hex'), path: redact(realPath) };
+  const workspace: Workspace = { id: crypto.createHash('sha256').update(realPath).digest('hex'), path: redact(realPath) };
+  const git = (args: string[]) => execFileSync('git', ['-C', realPath, ...args], {
+    encoding: 'utf8', timeout: 3000, maxBuffer: 65536, stdio: ['ignore','pipe','ignore'],
+    env: {...process.env, GIT_OPTIONAL_LOCKS:'0'}
+  }).trim();
+  try {
+    const common = fs.realpathSync(git(['rev-parse','--path-format=absolute','--git-common-dir']));
+    workspace.repositoryId = crypto.createHash('sha256').update(common).digest('hex');
+    workspace.repositoryPath = redact(path.basename(common) === '.git' ? path.dirname(common) : common);
+    try { workspace.branch = shortText(git(['symbolic-ref','--quiet','--short','HEAD']),160,'Branch'); } catch { /* Detached HEAD. */ }
+  } catch { /* Non-Git folders and unavailable Git keep workspace identity. */ }
+  return workspace;
 };
 export const redact = (value: string): string => String(value)
   .replace(/-----BEGIN [\s\S]*?PRIVATE KEY-----[\s\S]*?-----END [\s\S]*?PRIVATE KEY-----/g, '[REDACTED]')

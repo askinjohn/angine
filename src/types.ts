@@ -1,7 +1,7 @@
 export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'completed' | 'failed' | 'cancelled';
 export type MissionStatus = 'planned' | 'running' | 'blocked' | 'completed' | 'failed' | 'cancelled';
 
-export interface Workspace { id: string; path: string }
+export interface Workspace { id: string; path: string; repositoryId?: string; repositoryPath?: string; branch?: string }
 export interface Project {
   id: string; key: string; workspaceId: string; name: string; description?: string;
   status: 'active'; createdAt: string; updatedAt: string; archivedAt?: string;
@@ -11,6 +11,7 @@ export interface Mission {
   projectId: string;
   status: MissionStatus; createdAt: string; updatedAt: string; completedAt?: string;
   archivedAt?: string;
+  workspaceIds?: string[];
 }
 export interface Blocker { reason: string; nextStep?: string; owner?: string }
 export interface AgentProfile {
@@ -45,6 +46,7 @@ export interface ReportingHealth {
 }
 export interface State {
   schemaVersion: 2;
+  projectAliases?: Record<string,string>;
   seq: number; workspaces: Record<string, Workspace>; projects: Record<string, Project>;
   missions: Record<string, Mission>;
   tasks: Record<string, Task>; sessions: Record<string, AgentSession>;

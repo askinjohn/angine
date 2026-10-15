@@ -14,7 +14,7 @@ Working with Claude Code and Codex across several projects? Angine brings their 
 
 ## Quick start
 
-Requires Node.js 20 or later and a supported agent CLI installed locally.
+Requires Node.js 20 or later and a supported agent CLI installed locally. Git must be available for automatic repository/worktree grouping.
 
 ```bash
 npm install -g angine
@@ -45,7 +45,7 @@ My app
     └── Write the setup guide — Claude Code
 ```
 
-A project is a workspace; a mission is a goal; a task is a step toward that goal. Multiple agents can contribute to the same mission when they report the same workspace and mission key.
+A project is a repository (or a folder outside Git); a mission is a goal; a task is a step toward that goal. Multiple agents can contribute to the same mission when they report the same workspace and mission key.
 
 ## How it works
 
@@ -59,7 +59,7 @@ Angine collects short metadata: titles, statuses, progress, notes, timestamps, a
 ## Included in the MVP
 
 - **Projects:** one container per local workspace, showing mission counts, running work, agents, and attention needed.
-- **Missions:** goals within a project, grouped by status, with task completion percentages and separately scrolling sections.
+- **Missions:** consistent color borders identify the same mission in lists, task pages, and board cards; goals within a project, grouped by status, with task completion percentages and separately scrolling sections.
 - **Tasks:** status groups, reported progress, project and mission filters, and dedicated detail pages.
 - **Board:** status columns with independent vertical scrolling.
 - **Filters:** search, agent, profile, project, mission, status, and stale activity; saved separately for each view in your browser.
@@ -90,7 +90,7 @@ args: mcp --agent claude --profile claude-default
 
 Replace the agent name and profile key with your own. Creating a profile does not install, connect, or start the agent. Additional agents can report through MCP, CLI, or HTTP. Adding a profile for another agent does not create an integration for it.
 
-Projects group work by canonical local workspace path. Two agents share a mission by reporting that workspace and the same stable mission key. Use distinct task keys within each mission; the same task key may appear in other missions. Parent/child agent relationships require supplied identifiers; Angine does not invent them. Codex native session IDs are populated when its runtime makes them available to the reporter; other identity fields are optional.
+Git worktrees group under one project using their shared local Git repository. Worktree paths and observed branches remain visible in mission and reporter details. Separate clones stay separate, even when their names or remotes match. Non-Git folders group by canonical workspace path. Two agents share a mission by reporting workspaces in that repository and the same stable mission key. Existing duplicate missions remain separate during migration, even if they share a key. Use distinct task keys within each mission; the same task key may appear in other missions. Parent/child agent relationships require supplied identifiers; Angine does not invent them. Codex native session IDs are populated when its runtime makes them available to the reporter; other identity fields are optional.
 
 <details>
 <summary>Reporter connections and heartbeat details</summary>
@@ -128,6 +128,8 @@ Angine makes no outbound network requests during normal operation. Saved filters
 This MVP is for one computer. Mobile access over Wi-Fi, a shared company server, team authentication, independent agent observation, and notifications with all browser tabs closed are not implemented.
 
 ## Upgrading and troubleshooting
+
+On startup, existing worktree projects are merged under their repository, preserving mission, task, and session IDs. Old project links remain usable, and a `snapshot.json.before-worktrees` backup is saved before migration. Previously removed worktrees with no saved Git identity cannot be matched automatically.
 
 Existing plans automatically become missions grouped under their workspace project. IDs and history are preserved; old plan links still open their mission. Legacy snapshots are backed up before conversion.
 

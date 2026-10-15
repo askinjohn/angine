@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { groupRepositoryProjects, projectIdForRepository } from './repositories.js';
 import path from 'node:path';
 import { eventsDir, snapshotPath } from './paths.js';
 import { agentName, blockerDetails, relatedKeys, deriveStatus, id, now, shortText, taskProgress, taskStatuses, workspaceIdentity } from './model.js';
@@ -85,6 +86,13 @@ export class Store {
         const profile = this.genericProfile(agent); this.state.profiles[profile.id] = profile;
       }
     }
+    const grouped = groupRepositoryProjects(this.state);
+    if (JSON.stringify(grouped) !== JSON.stringify(this.state)) {
+      const backup = `${snapshotPath()}.before-worktrees`;
+      if (!fs.existsSync(backup)) writeAtomic(backup, JSON.stringify(this.state));
+      this.state = grouped;
+      this.snapshot();
+    }
     return this.state;
   }
   genericProfile(agent: string): AgentProfile {
@@ -157,19 +165,21 @@ export class Store {
     const name = shortText(plan.name, 160, 'Mission name', true);
     const key = shortText(plan.key, 160, 'Mission key') || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const description = shortText(plan.description, 2048, 'Mission description');
-    const rootId = projectIdForWorkspace(workspace.id);
+    const rootId = projectIdForRepository(workspace);
     const oldRoot = this.state.projects[rootId];
-    const existing = Object.values(this.state.missions).find(p => p.projectId === rootId && p.key === key);
-    const project: Mission = existing ? { ...existing, name, description, updatedAt: now() } : {
+    const matches = Object.values(this.state.missions).filter(p => p.projectId === rootId && p.key === key);
+    const existing = matches.find(p => p.workspaceId === workspace.id || p.workspaceIds?.includes(workspace.id)) || (matches.length === 1 ? matches[0] : undefined);
+    if (matches.length > 1 && !existing) throw new Error('Multiple migrated missions share this key; use a distinct mission key for new work');
+    const project: Mission = existing ? { ...existing, name, description, workspaceIds:[...new Set([...(existing.workspaceIds || [existing.workspaceId]),workspace.id])], updatedAt: now() } : {
       id: id('mis'), key, projectId:rootId, workspaceId: workspace.id, name, description, status: 'planned', createdAt: now(), updatedAt: now()
     };
     const root:Project = {id:rootId,key:input.mission ? shortText(input.project.key,160,'Project key') || oldRoot?.key || workspaceName(workspace) : oldRoot?.key || workspaceName(workspace),
       name:input.mission ? shortText(input.project.name,160,'Project name',true) : oldRoot?.name || workspaceName(workspace),
       description:input.mission ? shortText(input.project.description,2048,'Project description') || oldRoot?.description : oldRoot?.description,
-      workspaceId:workspace.id,status:'active',createdAt:oldRoot?.createdAt || now(),updatedAt:now(),archivedAt:oldRoot?.archivedAt};
+      workspaceId:oldRoot?.workspaceId || workspace.id,status:'active',createdAt:oldRoot?.createdAt || now(),updatedAt:now(),archivedAt:oldRoot?.archivedAt};
     const changes: Change[] = [];
     const reporterSessionId = this.touchSession(input, workspace.id, project, changes);
-    if (!this.state.workspaces[workspace.id]) changes.unshift({ type: 'workspace.upserted', payload: workspace });
+    if (JSON.stringify(this.state.workspaces[workspace.id]) !== JSON.stringify(workspace)) changes.unshift({ type: 'workspace.upserted', payload: workspace });
     changes.push({type:oldRoot ? 'project.updated' : 'project.created',payload:root,projectId:root.id});
     const priorTasks = Object.values(this.state.tasks).filter(t => t.missionId === project.id);
     const availableKeys = new Set([...priorTasks.map(t => t.key), ...input.tasks.map(t => t.key)].filter(key => !(input.removedTaskKeys || []).includes(key)));
@@ -217,7 +227,10 @@ export class Store {
     const agent = agentName(input?.agent || 'external');
     if (!project || !Array.isArray(input.updates) || !input.updates.length || input.updates.length > 100) throw new Error('Invalid project or updates');
     const changes: Change[] = [];
-    const reporterSessionId = this.touchSession(input, project.workspaceId, project, changes);
+    const matchingSessions = Object.values(this.state.sessions).filter(s => s.agent === agent && (s.missionId === project.id || s.missionIds?.includes(project.id)) &&
+      (input.reporterId ? s.reporterId === input.reporterId : input.sourceSessionId ? s.sourceSessionId === input.sourceSessionId && (!input.agentId || s.agentId === input.agentId) : input.sessionKey ? s.key === JSON.stringify([agent,input.sessionKey,s.workspaceId,input.agentId || 'root',s.profileId || 'unassigned']) || s.key === `${agent}:${input.sessionKey}:${s.workspaceId}` : false));
+    const workspaceIds = [...new Set(matchingSessions.map(s=>s.workspaceId))];
+    const reporterSessionId = this.touchSession(input, workspaceIds.length === 1 ? workspaceIds[0] : project.workspaceId, project, changes);
     const priorTasks = Object.values(this.state.tasks).filter(t => t.missionId === project.id);
     const updatedKeys = new Set<string>();
     for (const update of input.updates) {
@@ -246,6 +259,7 @@ export class Store {
     return { projectId:!input.missionId && input.projectId === project.id ? project.id : project.projectId, missionId: project.id, updated: changes.filter(c => c.type.startsWith('task.')).length };
   }
   resolveMission(input:UpdateTasksInput): Mission | undefined {
+    if (input?.projectId && this.state.projectAliases?.[input.projectId]) input = {...input,projectId:this.state.projectAliases[input.projectId]};
     if(input?.missionId) {
       const mission = this.state.missions[input.missionId];
       if(mission && input.projectId && ![mission.id,mission.projectId].includes(input.projectId)) throw new Error('Mission does not belong to this project');
@@ -258,6 +272,7 @@ export class Store {
     return candidates[0];
   }
   archiveProject(projectId: string, archived: boolean): Project | Mission {
+    projectId = this.state.projectAliases?.[projectId] || projectId;
     const mission = this.state.missions[projectId];
     const project = mission || this.state.projects[projectId];
     if (!project || typeof archived !== 'boolean') throw new Error('Invalid project or archive state');
@@ -300,11 +315,12 @@ export class Store {
     return this.projectEvents(mission.projectId).filter(e => e.missionId === missionId || !e.missionId && e.projectId === missionId);
   }
   projectEvents(projectId: string): Event[] {
+    projectId = this.state.projectAliases?.[projectId] || projectId;
     if(this.state.missions[projectId]) return this.missionEvents(projectId);
     const events: Event[] = [];
     for (const file of fs.readdirSync(eventsDir()).filter(f => /^\d{4}-\d{2}\.ndjson$/.test(f)).sort()) {
       for (const line of fs.readFileSync(path.join(eventsDir(), file), 'utf8').split('\n')) {
-        if (line) { const event = JSON.parse(line) as Event; if (event.projectId === projectId || event.missionId && this.state.missions[event.missionId]?.projectId === projectId || event.projectId && this.state.missions[event.projectId]?.projectId === projectId) events.push(event); }
+        if (line) { const event = JSON.parse(line) as Event; if (event.projectId === projectId || event.projectId && this.state.projectAliases?.[event.projectId] === projectId || event.missionId && this.state.missions[event.missionId]?.projectId === projectId || event.projectId && this.state.missions[event.projectId]?.projectId === projectId) events.push(event); }
       }
     }
     return events;

@@ -1,11 +1,11 @@
 import type { State } from './types.js';
 import { effectiveColor } from './colors.js';
 export type GraphPosition = {x:number;y:number};
-export type GraphNodeData = {label:string;kind:'Project'|'Mission'|'Task';status:string;color:string;href:string;summary:string};
+export type GraphNodeData = {label:string;kind:'Project'|'Mission'|'Task';status:string;color:string;href:string;summary:string;childCount?:number;expanded?:boolean};
 export type GraphFilters = {project:string;agent:string;status:string;query:string};
-export function buildWorkGraph(state:State, filters:GraphFilters, positions:Record<string,GraphPosition>={}) {
- const nodes:Array<{id:string;type:'work';position:GraphPosition;data:GraphNodeData}>=[];
- const edges:Array<{id:string;source:string;target:string;type:'smoothstep';style:{stroke:string;strokeWidth:number}}>=[];
+export function buildWorkGraph(state:State, filters:GraphFilters, positions:Record<string,GraphPosition>={}, expansion?:{projects:string[];missions:string[]}) {
+ let nodes:Array<{id:string;type:'work';position:GraphPosition;data:GraphNodeData}>=[];
+ let edges:Array<{id:string;source:string;target:string;type:'smoothstep';style:{stroke:string;strokeWidth:number}}>=[];
  let row=0;
  const query=filters.query.trim().toLowerCase();
  const matches=(...values:(string|undefined)[])=>values.join(' ').toLowerCase().includes(query);
@@ -29,27 +29,44 @@ export function buildWorkGraph(state:State, filters:GraphFilters, positions:Reco
   if(!children.length)row++;
   add(p.id,0,(start+row-1)*85,{label:p.name,kind:'Project',status:'active',color:effectiveColor(state,p.id),href:`#/projects/${encodeURIComponent(p.id)}`,summary:`${children.length} missions`});row++;
  }
- // Compact top-down project bands: two mission columns, two task columns per mission.
- let top=0;
+ // Start with project cards; reveal branches without hiding sibling projects.
+ const counts={projects:nodes.filter(n=>n.data.kind==='Project').length,missions:nodes.filter(n=>n.data.kind==='Mission').length,tasks:nodes.filter(n=>n.data.kind==='Task').length};
+ const allEdges=edges;
+ const expandedProjects=new Set(expansion?.projects);
+ const expandedMissions=new Set(expansion?.missions);
+ for(const node of nodes) {
+  node.data.childCount=allEdges.filter(e=>e.source===node.id).length;
+  node.data.expanded=!expansion || (node.data.kind==='Project'?expandedProjects.has(node.id):expandedMissions.has(node.id));
+ }
+ if(expansion) {
+  const roots=new Set(nodes.filter(n=>n.data.kind==='Project').map(n=>n.id));
+  const missions=new Set(allEdges.filter(e=>roots.has(e.source)&&expandedProjects.has(e.source)).map(e=>e.target));
+  const tasks=new Set(allEdges.filter(e=>missions.has(e.source)&&expandedMissions.has(e.source)).map(e=>e.target));
+  nodes=nodes.filter(n=>roots.has(n.id)||missions.has(n.id)||tasks.has(n.id));
+  const visible=new Set(nodes.map(n=>n.id));edges=edges.filter(e=>visible.has(e.source)&&visible.has(e.target));
+ }
  const byId=new Map(nodes.map(n=>[n.id,n]));
  const children=(id:string)=>edges.filter(e=>e.source===id).map(e=>byId.get(e.target)!);
+ let left=0;
  for(const project of nodes.filter(n=>n.data.kind==='Project')) {
   const missions=children(project.id);
   const columns=Math.min(2,Math.max(1,missions.length));
-  project.position={x:(columns*660-320)/2,y:top};
-  let missionTop=top+230;
+  const width=missions.length>1?1320:missions.some(m=>children(m.id).length>1)?640:320;
+  project.position={x:left+(width-280)/2,y:0};
+  let missionTop=230;
   for(let index=0;index<missions.length;index+=2) {
    const band=missions.slice(index,index+2);let maxRows=0;
    for(const [column,mission] of band.entries()) {
     const tasks=children(mission.id);const taskColumns=Math.min(2,Math.max(1,tasks.length));
-    const left=column*660;
-    mission.position={x:left+(taskColumns-1)*160,y:missionTop};
-    for(const [i,task] of tasks.entries())task.position={x:left+(i%2)*320,y:missionTop+220+Math.floor(i/2)*170};
+    const offset=left+column*660;
+    mission.position={x:offset+(columns===1?(width-280)/2:160),y:missionTop};
+    const taskLeft=columns===1?left+(width-(taskColumns===2?600:280))/2:offset+(taskColumns===1?160:0);
+    for(const [i,task] of tasks.entries())task.position={x:taskLeft+(i%2)*320,y:missionTop+220+Math.floor(i/2)*170};
     maxRows=Math.max(maxRows,Math.ceil(tasks.length/2));
    }
    missionTop+=maxRows ? 220+maxRows*170+90 : 230;
   }
-  top=Math.max(top+400,missionTop+140);
+  left+=width+100;
  }
  const occupied=[...Object.values(positions)];
  for(const node of nodes) {
@@ -59,5 +76,5 @@ export function buildWorkGraph(state:State, filters:GraphFilters, positions:Reco
    occupied.push(node.position);
   }
  }
- return {nodes,edges};
+ return {nodes,edges,counts};
 }

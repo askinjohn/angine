@@ -27,3 +27,14 @@ test('graph search and task filters keep parent context and do not show unrelate
  for(const edge of graph.edges){const parent=graph.nodes.find(n=>n.id===edge.source),child=graph.nodes.find(n=>n.id===edge.target);assert.ok(child.position.y>=parent.position.y+170);}
  for(let i=0;i<graph.nodes.length;i++)for(let j=i+1;j<graph.nodes.length;j++){const a=graph.nodes[i].position,b=graph.nodes[j].position;assert.ok(Math.abs(a.x-b.x)>=280||Math.abs(a.y-b.y)>=126);}
  });
+
+ test('overview shows every project and expands branches without hiding siblings',()=>{
+ const multiple=structuredClone(state);multiple.projects.second={...state.projects.p,id:'second',name:'Second'};
+ const overview=buildWorkGraph(multiple,filters,{}, {projects:[],missions:[]});
+ assert.deepEqual(new Set(overview.nodes.map(n=>n.id)),new Set(['p','second']));
+ assert.ok(overview.nodes.every(n=>n.position.y===0));assert.equal(overview.edges.length,0);
+ const missions=buildWorkGraph(multiple,filters,{}, {projects:['p'],missions:[]});
+ assert.deepEqual(new Set(missions.nodes.map(n=>n.id)),new Set(['p','second','m','empty']));
+ const tasks=buildWorkGraph(multiple,filters,{}, {projects:['p'],missions:['m']});
+ assert.ok(tasks.nodes.some(n=>n.id==='second'));assert.ok(tasks.nodes.some(n=>n.id==='t'));
+ });

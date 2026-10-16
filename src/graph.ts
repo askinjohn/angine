@@ -50,29 +50,32 @@ export function buildWorkGraph(state:State, filters:GraphFilters, positions:Reco
  let left=0;
  for(const project of nodes.filter(n=>n.data.kind==='Project')) {
   const missions=children(project.id);
-  const columns=Math.min(2,Math.max(1,missions.length));
-  const width=missions.length>1?1320:missions.some(m=>children(m.id).length>1)?640:320;
-  project.position={x:left+(width-280)/2,y:0};
-  let missionTop=230;
-  for(let index=0;index<missions.length;index+=2) {
-   const band=missions.slice(index,index+2);let maxRows=0;
+  const hasExpandedTasks=missions.some(m=>children(m.id).length>0);
+  const columns=Math.min(hasExpandedTasks?2:3,Math.max(1,missions.length));
+  const columnWidth=hasExpandedTasks?540:260;
+  const width=columns*columnWidth;
+  project.position={x:left+(width-220)/2,y:0};
+  let missionTop=180;
+  for(let index=0;index<missions.length;index+=columns) {
+   const band=missions.slice(index,index+columns);let maxRows=0;
    for(const [column,mission] of band.entries()) {
     const tasks=children(mission.id);const taskColumns=Math.min(2,Math.max(1,tasks.length));
-    const offset=left+column*660;
-    mission.position={x:offset+(columns===1?(width-280)/2:160),y:missionTop};
-    const taskLeft=columns===1?left+(width-(taskColumns===2?600:280))/2:offset+(taskColumns===1?160:0);
-    for(const [i,task] of tasks.entries())task.position={x:taskLeft+(i%2)*320,y:missionTop+220+Math.floor(i/2)*170};
+    const offset=left+column*columnWidth;
+    mission.position={x:offset+(columnWidth-220)/2,y:missionTop};
+    const taskLeft=offset+(columnWidth-(taskColumns===2?480:220))/2;
+    for(const [i,task] of tasks.entries())task.position={x:taskLeft+(i%2)*260,y:missionTop+160+Math.floor(i/2)*150};
     maxRows=Math.max(maxRows,Math.ceil(tasks.length/2));
    }
-   missionTop+=maxRows ? 220+maxRows*170+90 : 230;
+   missionTop+=maxRows ? 160+maxRows*150+50 : 156;
   }
-  left+=width+100;
+  left+=width+70;
  }
+ if(expansion && expandedProjects.size===0)nodes.filter(n=>n.data.kind==='Project').forEach((n,index)=>{n.position={x:(index%3)*260,y:Math.floor(index/3)*156};});
  const occupied=[...Object.values(positions)];
  for(const node of nodes) {
   if(positions[node.id])node.position=positions[node.id];
   else {
-   while(occupied.some(p=>Math.abs(p.x-node.position.x)<300&&Math.abs(p.y-node.position.y)<145))node.position={x:node.position.x,y:node.position.y+170};
+   while(occupied.some(p=>Math.abs(p.x-node.position.x)<240&&Math.abs(p.y-node.position.y)<136))node.position={x:node.position.x,y:node.position.y+156};
    occupied.push(node.position);
   }
  }

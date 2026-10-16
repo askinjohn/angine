@@ -12,7 +12,7 @@ test('graph connects canonical hierarchy, excludes archives and uses inherited c
  const updated=structuredClone(state);updated.tasks.new={...state.tasks.t,id:'new',title:'New task',createdAt:'3'};
  const next=buildWorkGraph(updated,filters,positions);
  for(const n of graph.nodes)assert.deepEqual(next.nodes.find(x=>x.id===n.id).position,n.position);
- const added=next.nodes.find(n=>n.id==='new');assert.ok(added);assert.ok(!Object.values(positions).some(p=>Math.abs(p.x-added.position.x)<320&&Math.abs(p.y-added.position.y)<145));
+ const added=next.nodes.find(n=>n.id==='new');assert.ok(added);assert.ok(!Object.values(positions).some(p=>Math.abs(p.x-added.position.x)<240&&Math.abs(p.y-added.position.y)<136));
 });
 test('graph search and task filters keep parent context and do not show unrelated branches',()=>{
  assert.deepEqual(new Set(buildWorkGraph(state,{...filters,query:'payment'}).nodes.map(n=>n.id)),new Set(['p','m','t']));
@@ -24,12 +24,14 @@ test('graph search and task filters keep parent context and do not show unrelate
 
  test('top-down layout puts missions below projects and tasks below missions without overlap',()=>{
  const graph=buildWorkGraph(state,filters);
- for(const edge of graph.edges){const parent=graph.nodes.find(n=>n.id===edge.source),child=graph.nodes.find(n=>n.id===edge.target);assert.ok(child.position.y>=parent.position.y+170);}
- for(let i=0;i<graph.nodes.length;i++)for(let j=i+1;j<graph.nodes.length;j++){const a=graph.nodes[i].position,b=graph.nodes[j].position;assert.ok(Math.abs(a.x-b.x)>=280||Math.abs(a.y-b.y)>=126);}
+ for(const edge of graph.edges){const parent=graph.nodes.find(n=>n.id===edge.source),child=graph.nodes.find(n=>n.id===edge.target);assert.ok(child.position.y>=parent.position.y+150);}
+ for(let i=0;i<graph.nodes.length;i++)for(let j=i+1;j<graph.nodes.length;j++){const a=graph.nodes[i].position,b=graph.nodes[j].position;assert.ok(Math.abs(a.x-b.x)>=220||Math.abs(a.y-b.y)>=116);}
  });
 
  test('overview shows every project and expands branches without hiding siblings',()=>{
  const multiple=structuredClone(state);multiple.projects.second={...state.projects.p,id:'second',name:'Second'};
+ const five=structuredClone(multiple);for(let i=0;i<3;i++)five.projects[`extra${i}`]={...state.projects.p,id:`extra${i}`,name:`Extra ${i}`};
+ const compact=buildWorkGraph(five,filters,{}, {projects:[],missions:[]});assert.equal(compact.nodes.length,5);assert.ok(Math.max(...compact.nodes.map(n=>n.position.x))+280<=1000);assert.ok(Math.max(...compact.nodes.map(n=>n.position.y))+150<=400);
  const overview=buildWorkGraph(multiple,filters,{}, {projects:[],missions:[]});
  assert.deepEqual(new Set(overview.nodes.map(n=>n.id)),new Set(['p','second']));
  assert.ok(overview.nodes.every(n=>n.position.y===0));assert.equal(overview.edges.length,0);

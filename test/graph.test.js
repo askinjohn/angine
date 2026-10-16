@@ -21,3 +21,9 @@ test('graph search and task filters keep parent context and do not show unrelate
  assert.equal(buildWorkGraph(state,{...filters,query:'unmatched'}).edges.length,0);
  const moved={t:{x:123,y:456}};assert.deepEqual(buildWorkGraph(state,filters,moved).nodes.find(n=>n.id==='t').position,moved.t);
 });
+
+ test('top-down layout puts missions below projects and tasks below missions without overlap',()=>{
+ const graph=buildWorkGraph(state,filters);
+ for(const edge of graph.edges){const parent=graph.nodes.find(n=>n.id===edge.source),child=graph.nodes.find(n=>n.id===edge.target);assert.ok(child.position.y>=parent.position.y+170);}
+ for(let i=0;i<graph.nodes.length;i++)for(let j=i+1;j<graph.nodes.length;j++){const a=graph.nodes[i].position,b=graph.nodes[j].position;assert.ok(Math.abs(a.x-b.x)>=280||Math.abs(a.y-b.y)>=126);}
+ });

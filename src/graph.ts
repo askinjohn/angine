@@ -6,14 +6,10 @@ export type GraphFilters = {project:string;agent:string;status:string;query:stri
 export function buildWorkGraph(state:State, filters:GraphFilters, positions:Record<string,GraphPosition>={}) {
  const nodes:Array<{id:string;type:'work';position:GraphPosition;data:GraphNodeData}>=[];
  const edges:Array<{id:string;source:string;target:string;type:'smoothstep';style:{stroke:string;strokeWidth:number}}>=[];
- const used=[...Object.values(positions)];let row=0;
+ let row=0;
  const query=filters.query.trim().toLowerCase();
  const matches=(...values:(string|undefined)[])=>values.join(' ').toLowerCase().includes(query);
- const add=(id:string,x:number,y:number,data:GraphNodeData)=>{
-  let position=positions[id];
-  if(!position){position={x,y};while(used.some(p=>Math.abs(p.x-position.x)<320 && Math.abs(p.y-position.y)<145))position={x,y:position.y+170};used.push(position);}
-  nodes.push({id,type:'work',position,data});
- };
+ const add=(id:string,x:number,y:number,data:GraphNodeData)=>nodes.push({id,type:'work',position:{x,y},data});
  const edge=(source:string,target:string,color:string)=>edges.push({id:`${source}:${target}`,source,target,type:'smoothstep',style:{stroke:color,strokeWidth:1.5}});
  for(const p of Object.values(state.projects).filter(p=>!p.archivedAt && (filters.project==='all'||p.id===filters.project)).sort((a,b)=>a.name.localeCompare(b.name)||a.id.localeCompare(b.id))) {
   const start=row;const children=[];
@@ -32,6 +28,36 @@ export function buildWorkGraph(state:State, filters:GraphFilters, positions:Reco
   if(!children.length && !(filters.agent==='all'&&filters.status==='all'&&matches(p.name)&&!Object.values(state.missions).some(m=>m.projectId===p.id&&!m.archivedAt)))continue;
   if(!children.length)row++;
   add(p.id,0,(start+row-1)*85,{label:p.name,kind:'Project',status:'active',color:effectiveColor(state,p.id),href:`#/projects/${encodeURIComponent(p.id)}`,summary:`${children.length} missions`});row++;
+ }
+ // Compact top-down project bands: two mission columns, two task columns per mission.
+ let top=0;
+ const byId=new Map(nodes.map(n=>[n.id,n]));
+ const children=(id:string)=>edges.filter(e=>e.source===id).map(e=>byId.get(e.target)!);
+ for(const project of nodes.filter(n=>n.data.kind==='Project')) {
+  const missions=children(project.id);
+  const columns=Math.min(2,Math.max(1,missions.length));
+  project.position={x:(columns*660-320)/2,y:top};
+  let missionTop=top+230;
+  for(let index=0;index<missions.length;index+=2) {
+   const band=missions.slice(index,index+2);let maxRows=0;
+   for(const [column,mission] of band.entries()) {
+    const tasks=children(mission.id);const taskColumns=Math.min(2,Math.max(1,tasks.length));
+    const left=column*660;
+    mission.position={x:left+(taskColumns-1)*160,y:missionTop};
+    for(const [i,task] of tasks.entries())task.position={x:left+(i%2)*320,y:missionTop+220+Math.floor(i/2)*170};
+    maxRows=Math.max(maxRows,Math.ceil(tasks.length/2));
+   }
+   missionTop+=maxRows ? 220+maxRows*170+90 : 230;
+  }
+  top=Math.max(top+400,missionTop+140);
+ }
+ const occupied=[...Object.values(positions)];
+ for(const node of nodes) {
+  if(positions[node.id])node.position=positions[node.id];
+  else {
+   while(occupied.some(p=>Math.abs(p.x-node.position.x)<300&&Math.abs(p.y-node.position.y)<145))node.position={x:node.position.x,y:node.position.y+170};
+   occupied.push(node.position);
+  }
  }
  return {nodes,edges};
 }

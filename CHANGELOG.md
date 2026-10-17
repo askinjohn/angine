@@ -1,6 +1,6 @@
 # Release notes
 
-## Unreleased
+## 0.1.1 — Worktrees, colors, and graph
 
 - Add a live React Flow graph tab with pan/zoom, draggable nodes, minimap, filtering, inherited colors, and saved node positions.
 

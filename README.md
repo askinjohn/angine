@@ -10,7 +10,7 @@ Working with Claude Code and Codex across several projects? Angine brings their 
 
 **Local storage · Open source · Claude Code and Codex setup · Shared missions across agents**
 
-**v0.1.0 is an early local MVP.** Angine relies on reports from connected agents; it does not independently observe their tool calls, file changes, or transcripts.
+**v0.1.1 is an early local release.** Angine relies on reports from connected agents; it does not independently observe their tool calls, file changes, or transcripts.
 
 ## Quick start
 

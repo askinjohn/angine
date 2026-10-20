@@ -37,5 +37,5 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm pack --ignore-scripts
+      - run: npm pack
       - run: npm run test:release -- ./angine-0.1.1.tgz

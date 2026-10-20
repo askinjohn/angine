@@ -5,7 +5,7 @@ import { eventsDir, snapshotPath } from './paths.js';
 import { agentName, blockerDetails, relatedKeys, deriveStatus, id, now, shortText, taskProgress, taskStatuses, workspaceIdentity } from './model.js';
 import { defaultProfiles } from './workflow.js';
 import { normalizeHierarchy, projectFromMission, projectIdForWorkspace, workspaceName } from './hierarchy.js';
-import type { AgentProfile, AgentSession, Blocker, Change, Event, Mission, Project, State, SyncProjectInput, SyncProjectResult, Task, UpdateTasksInput, UpdateTasksResult, Workspace } from './types.js';
+import type { AgentProfile, AgentSession, Blocker, Change, Event, Mission, Project, ReportWorkUpdateInput, ReportWorkUpdateResult, State, SyncProjectInput, SyncProjectResult, Task, UpdateTasksInput, UpdateTasksResult, WorkUpdate, Workspace } from './types.js';
 
 const emptyState = (): State => ({ schemaVersion:2, seq: 0, workspaces: {}, projects: {}, missions:{}, tasks: {}, sessions: {}, profiles: defaultProfiles() });
 const clone = <T>(value: T): T => structuredClone(value);
@@ -18,7 +18,13 @@ export function reduce(state: State, event: Event): State {
     const root = next.projects[projectIdForWorkspace(workspace.id)];
     if(root?.name === 'Project') next.projects[root.id] = {...root,name:workspaceName(workspace),key:workspaceName(workspace)};
   }
-  if (type.startsWith('mission.') || type.startsWith('project.') && (payload as Project).status !== 'active') {
+  if (type === 'work.update_reported') {
+    const update = payload as WorkUpdate;
+    const project = next.projects[update.projectId];
+    if (project) next.projects[project.id] = { ...project, latestUpdate: update, latestMonitoring: update.phase === 'monitoring' ? update : project.latestMonitoring, updatedAt: event.timestamp };
+    const mission = update.missionId ? next.missions[update.missionId] : undefined;
+    if (mission) next.missions[mission.id] = { ...mission, latestUpdate: update, latestMonitoring: update.phase === 'monitoring' ? update : mission.latestMonitoring, updatedAt: event.timestamp };
+  } else if (type.startsWith('mission.') || type.startsWith('project.') && (payload as Project).status !== 'active') {
     const old = payload as Mission;
     const mission:Mission = {...old,projectId: type.startsWith('mission.') ? old.projectId : projectIdForWorkspace(old.workspaceId)};
     next.missions[mission.id] = mission;
@@ -47,6 +53,11 @@ function writeAtomic(file: string, data: string): void {
   const fd = fs.openSync(temp, 'w', 0o600);
   try { fs.writeFileSync(fd, data); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
   fs.renameSync(temp, file);
+}
+function onlyColorChanged(previous: Project | Mission, current: Project | Mission): boolean {
+  const { color: _oldColor, ...oldFields } = previous;
+  const { color: _newColor, ...newFields } = current;
+  return JSON.stringify(oldFields) === JSON.stringify(newFields);
 }
 
 export class Store {
@@ -118,7 +129,7 @@ export class Store {
     if (this.sinceSnapshot >= 100) this.snapshot();
   }
   snapshot(): void { writeAtomic(snapshotPath(), JSON.stringify(this.state)); this.sinceSnapshot = 0; }
-  touchSession(input: SyncProjectInput | UpdateTasksInput, workspaceId: string, mission: Mission, changes: Change[]): string {
+  touchSession(input: SyncProjectInput | UpdateTasksInput | ReportWorkUpdateInput, workspaceId: string, mission: Mission, changes: Change[]): string {
     const projectId = mission.projectId, missionId = mission.id;
     let agent = input.agent || 'external';
     agent = agentName(agent);
@@ -176,7 +187,7 @@ export class Store {
     const root:Project = {id:rootId,key:input.mission ? shortText(input.project.key,160,'Project key') || oldRoot?.key || workspaceName(workspace) : oldRoot?.key || workspaceName(workspace),
       name:input.mission ? shortText(input.project.name,160,'Project name',true) : oldRoot?.name || workspaceName(workspace),
       description:input.mission ? shortText(input.project.description,2048,'Project description') || oldRoot?.description : oldRoot?.description,
-      color:oldRoot?.color,workspaceId:oldRoot?.workspaceId || workspace.id,status:'active',createdAt:oldRoot?.createdAt || now(),updatedAt:now(),archivedAt:oldRoot?.archivedAt};
+      color:oldRoot?.color,workspaceId:oldRoot?.workspaceId || workspace.id,status:'active',createdAt:oldRoot?.createdAt || now(),updatedAt:now(),archivedAt:oldRoot?.archivedAt,latestUpdate:oldRoot?.latestUpdate,latestMonitoring:oldRoot?.latestMonitoring};
     const changes: Change[] = [];
     const reporterSessionId = this.touchSession(input, workspace.id, project, changes);
     if (JSON.stringify(this.state.workspaces[workspace.id]) !== JSON.stringify(workspace)) changes.unshift({ type: 'workspace.upserted', payload: workspace });
@@ -258,6 +269,32 @@ export class Store {
     }
     return { projectId:!input.missionId && input.projectId === project.id ? project.id : project.projectId, missionId: project.id, updated: changes.filter(c => c.type.startsWith('task.')).length };
   }
+  reportWorkUpdate(input: ReportWorkUpdateInput): ReportWorkUpdateResult {
+    const suppliedProjectId = input?.projectId ? this.state.projectAliases?.[input.projectId] || input.projectId : undefined;
+    const mission = input?.missionId ? this.state.missions[input.missionId] : undefined;
+    if (input?.missionId && !mission) throw new Error('Unknown mission; register the mission with sync_project first');
+    if (!input?.missionId && !suppliedProjectId) throw new Error('Provide projectId or missionId');
+    const projectId = mission?.projectId || suppliedProjectId;
+    const project = projectId ? this.state.projects[projectId] : undefined;
+    if (!project) throw new Error('Unknown project; register its work with sync_project first');
+    if (mission && suppliedProjectId && ![mission.id, mission.projectId].includes(suppliedProjectId)) throw new Error('Mission does not belong to this project');
+    if (!['request','implementation','deployment','monitoring','blocker'].includes(input.phase)) throw new Error('Invalid update phase');
+    if (!['in_progress','completed','blocked','failed'].includes(input.status)) throw new Error('Invalid update status');
+    if (input.environment !== undefined && !['development','staging','production'].includes(input.environment)) throw new Error('Invalid environment');
+    const agent = agentName(input.agent || 'external');
+    const changes: Change[] = [];
+    const reporterSessionId = mission ? this.touchSession(input, mission.workspaceId, mission, changes) : undefined;
+    const update: WorkUpdate = {
+      id: id('upd'), projectId: project.id, missionId: mission?.id, phase: input.phase, status: input.status,
+      summary: shortText(input.summary, 500, 'Update summary', true),
+      nextStep: shortText(input.nextStep, 300, 'Next step'), environment: input.environment,
+      updatedBy: agent, updatedBySessionId: reporterSessionId,
+      sourceSessionId: shortText(input.sourceSessionId, 160, 'Source session ID'), reporterId: shortText(input.reporterId, 160, 'Reporter ID'), reportedAt: now()
+    };
+    changes.push({ type: 'work.update_reported', payload: update, projectId: project.id, missionId: mission?.id, sessionId: reporterSessionId });
+    this.commit(changes);
+    return { projectId: project.id, missionId: mission?.id, updateId: update.id };
+  }
   resolveMission(input:UpdateTasksInput): Mission | undefined {
     if (input?.projectId && this.state.projectAliases?.[input.projectId]) input = {...input,projectId:this.state.projectAliases[input.projectId]};
     if(input?.missionId) {
@@ -288,7 +325,7 @@ export class Store {
     const item = input.missionId ? this.state.missions[input.missionId] : this.state.projects[projectId!];
     if (!item) throw new Error('Project or mission not found');
     const next = {...item,color:input.color?.toLowerCase() || undefined};
-    this.commit([{type:input.missionId ? 'mission.updated' : 'project.updated',payload:next,
+    this.commit([{type:input.missionId ? 'mission.color_changed' : 'project.color_changed',payload:next,
       projectId:input.missionId ? (item as Mission).projectId : item.id,...(input.missionId ? {missionId:item.id} : {})}]);
     return next;
   }
@@ -330,9 +367,24 @@ export class Store {
     projectId = this.state.projectAliases?.[projectId] || projectId;
     if(this.state.missions[projectId]) return this.missionEvents(projectId);
     const events: Event[] = [];
+    const previousItems = new Map<string, Project | Mission>();
     for (const file of fs.readdirSync(eventsDir()).filter(f => /^\d{4}-\d{2}\.ndjson$/.test(f)).sort()) {
       for (const line of fs.readFileSync(path.join(eventsDir(), file), 'utf8').split('\n')) {
-        if (line) { const event = JSON.parse(line) as Event; if (event.projectId === projectId || event.projectId && this.state.projectAliases?.[event.projectId] === projectId || event.missionId && this.state.missions[event.missionId]?.projectId === projectId || event.projectId && this.state.missions[event.projectId]?.projectId === projectId) events.push(event); }
+        if (line) {
+          const event = JSON.parse(line) as Event;
+          const belongs = event.projectId === projectId || event.projectId && this.state.projectAliases?.[event.projectId] === projectId || event.missionId && this.state.missions[event.missionId]?.projectId === projectId || event.projectId && this.state.missions[event.projectId]?.projectId === projectId;
+          if (!belongs) continue;
+          let colorOnly = false;
+          if (event.type.startsWith('mission.') || event.type.startsWith('project.')) {
+            const item = event.payload as Project | Mission;
+            const isMission = Boolean(event.missionId) || 'projectId' in item;
+            const key = `${isMission ? 'mission' : 'project'}:${item.id}`;
+            const previous = previousItems.get(key);
+            colorOnly = event.type.endsWith('.color_changed') || Boolean(previous && event.type.endsWith('.updated') && onlyColorChanged(previous, item));
+            previousItems.set(key, item);
+          }
+          if (!colorOnly) events.push(event);
+        }
       }
     }
     return events;

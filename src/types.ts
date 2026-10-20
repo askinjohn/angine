@@ -1,11 +1,21 @@
 export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'completed' | 'failed' | 'cancelled';
 export type MissionStatus = 'planned' | 'running' | 'blocked' | 'completed' | 'failed' | 'cancelled';
+export type MissionUpdatePhase = 'request' | 'implementation' | 'deployment' | 'monitoring' | 'blocker';
+export type MissionUpdateStatus = 'in_progress' | 'completed' | 'blocked' | 'failed';
+
+export interface WorkUpdate {
+  id: string; projectId: string; missionId?: string;
+  phase: MissionUpdatePhase; status: MissionUpdateStatus; summary: string;
+  nextStep?: string; environment?: 'development' | 'staging' | 'production';
+  updatedBy: string; updatedBySessionId?: string; sourceSessionId?: string; reporterId?: string; reportedAt: string;
+}
 
 export interface Workspace { id: string; path: string; repositoryId?: string; repositoryPath?: string; branch?: string }
 export interface Project {
   color?: string;
   id: string; key: string; workspaceId: string; name: string; description?: string;
   status: 'active'; createdAt: string; updatedAt: string; archivedAt?: string;
+  latestUpdate?: WorkUpdate; latestMonitoring?: WorkUpdate;
 }
 export interface Mission {
   color?: string;
@@ -14,6 +24,7 @@ export interface Mission {
   status: MissionStatus; createdAt: string; updatedAt: string; completedAt?: string;
   archivedAt?: string;
   workspaceIds?: string[];
+  latestUpdate?: WorkUpdate; latestMonitoring?: WorkUpdate;
 }
 export interface Blocker { reason: string; nextStep?: string; owner?: string }
 export interface AgentProfile {
@@ -54,11 +65,11 @@ export interface State {
   tasks: Record<string, Task>; sessions: Record<string, AgentSession>;
   profiles: Record<string, AgentProfile>;
 }
-export type EventType = 'workspace.upserted' | 'project.created' | 'project.updated' | 'project.completed'
-  | 'mission.created' | 'mission.updated' | 'mission.completed'
+export type EventType = 'workspace.upserted' | 'project.created' | 'project.updated' | 'project.completed' | 'project.color_changed'
+  | 'mission.created' | 'mission.updated' | 'mission.completed' | 'mission.color_changed' | 'work.update_reported'
   | 'task.created' | 'task.updated' | 'task.status_changed' | 'task.removed'
   | 'session.started' | 'session.updated' | 'session.ended' | 'profile.updated';
-export type EventPayload = Workspace | Project | Mission | Task | AgentSession | AgentProfile;
+export type EventPayload = Workspace | Project | Mission | WorkUpdate | Task | AgentSession | AgentProfile;
 export interface Event {
   seq: number; type: EventType; projectId?: string; missionId?: string; taskId?: string; sessionId?: string;
   timestamp: string; payload: EventPayload;
@@ -81,6 +92,14 @@ export interface UpdateTasksInput {
   profileKey?: string;
   updates: Array<{ taskKey: string; status: TaskStatus; note?: string; progress?: number; blocker?: Blocker | null; relatedTaskKeys?: string[] }>;
 }
+export interface ReportWorkUpdateInput {
+  reporterId?: string;
+  agent?: string; agentVersion?: string; sessionKey?: string; projectId?: string; missionId?: string;
+  sourceSessionId?: string; agentId?: string; parentAgentId?: string; accountLabel?: string; profileKey?: string;
+  phase: MissionUpdatePhase; status: MissionUpdateStatus; summary: string;
+  nextStep?: string; environment?: 'development' | 'staging' | 'production';
+}
+export interface ReportWorkUpdateResult { projectId: string; missionId?: string; updateId: string }
 export interface SyncProjectResult { projectId: string; missionId: string; rootProjectId: string; taskIds: Record<string, string> }
 export interface UpdateTasksResult { projectId: string; missionId: string; updated: number }
 export interface DaemonStatus { daemon: 'running'; url: string; projects: number; missions?:number; running: number; pid?: number }

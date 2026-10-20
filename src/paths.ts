@@ -4,6 +4,7 @@ import path from 'node:path';
 export const dataDir = () => process.env.ANGINE_HOME || path.join(os.homedir(), '.angine');
 export const codexDir = () => process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
 export const claudeDir = () => process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
+export const antigravityDir = () => path.join(os.homedir(), '.gemini');
 export const socketPath = (): string => process.platform === 'win32'
   ? `\\\\.\\pipe\\angine-${process.env.USERNAME || 'user'}`
   : path.join(dataDir(), 'runtime', 'daemon.sock');

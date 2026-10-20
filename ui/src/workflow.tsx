@@ -8,7 +8,7 @@ export type Filters = { agent: string; status: string; project: string; mission:
 export type Preferences = { staleMinutes: number; notifications: boolean };
 export type Mutate = (operation: string, input: unknown) => Promise<boolean>;
 const defaults: Filters = { agent: 'all', status: 'all', project: 'all', mission: 'all', profile: 'all', query: '', staleOnly: false };
-export const agentLabel = (name?: string) => ({ codex: 'Codex', claude: 'Claude', grok: 'Grok', external: 'External' }[(name || 'external').trim()] || name || 'External');
+export const agentLabel = (name?: string) => ({ codex: 'Codex', claude: 'Claude', antigravity: 'Antigravity', grok: 'Grok', external: 'External' }[(name || 'external').trim()] || name || 'External');
 const href = (kind: string, id?: string) => `#/${kind}${id ? `/${encodeURIComponent(id)}` : ''}`;
 function readLocal<T>(key: string, fallback: T): T { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch { return fallback; } }
 function writeLocal(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage may be unavailable */ } }

@@ -6,7 +6,7 @@ import { ensureDaemon, request } from './ipc.js';
 import { agentName } from './model.js';
 import { nativeReporterIdentity } from './identity.js';
 import { protocolVersion, serverVersion } from './health.js';
-import type { SyncProjectInput, UpdateTasksInput } from './types.js';
+import type { ReportWorkUpdateInput, SyncProjectInput, UpdateTasksInput } from './types.js';
 
 const blocker = z.object({ reason: z.string().max(500), nextStep: z.string().max(500).optional(), owner: z.string().max(160).optional() }).nullable().optional();
 const relatedTaskKeys = z.array(z.string().max(160)).max(20).optional();
@@ -33,7 +33,7 @@ const reporterIdentity = {
   parentAgentId: z.string().max(160).optional(),
   accountLabel: z.string().max(160).optional()
 };
-async function report(method: 'sync_project' | 'update_tasks', input: SyncProjectInput | UpdateTasksInput) {
+async function report(method: 'sync_project' | 'update_tasks' | 'report_update', input: SyncProjectInput | UpdateTasksInput | ReportWorkUpdateInput) {
   try { await ensureDaemon(); await ping(); return { content: [{ type: 'text' as const, text: JSON.stringify(await request(method, { ...nativeReporterIdentity(agent), ...(profileFlag >= 0 ? { profileKey: process.argv[profileFlag + 1] } : {}), ...input, agent, sessionKey, reporterId:sessionKey })) }] }; }
   catch (error) { return { isError: true, content: [{ type: 'text' as const, text: `Angine reporting unavailable: ${(error as Error).message}. Continue implementation; do not repeatedly retry.` }] }; }
 }
@@ -62,4 +62,17 @@ server.registerTool('update_tasks', {
     updates: z.array(z.object({ taskKey: z.string(), status: taskStatus, note: z.string().max(500).optional(), progress: z.number().min(0).max(100).optional(), blocker, relatedTaskKeys })).min(1).max(100)
   }
 }, input => report('update_tasks', input));
+server.registerTool('report_update', {
+  description: 'Post a concise checkpoint to either a mission or a project. Use missionId for a specific fix; use projectId alone for monitoring spanning the project. Mission updates also appear on their parent project. Report only verified facts; say what was actually checked and never claim production is healthy without checking it. Do not send logs, prompts, code, commands, secrets, or tool output.',
+  inputSchema: {
+    ...reporterIdentity,
+    projectId: z.string().optional(),
+    missionId: z.string().optional(),
+    phase: z.enum(['request','implementation','deployment','monitoring','blocker']),
+    status: z.enum(['in_progress','completed','blocked','failed']),
+    summary: z.string().min(1).max(500),
+    nextStep: z.string().max(300).optional(),
+    environment: z.enum(['development','staging','production']).optional()
+  }
+}, input => report('report_update', input));
 await server.connect(new StdioServerTransport());

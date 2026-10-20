@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { ensureDaemon, request, restartDaemon } from '../src/ipc.js';
 import type { DaemonStatus } from '../src/types.js';
 import { serverVersion } from '../src/reporting.js';
+import path from 'node:path';
 
 const command = process.argv[2] || 'open';
 async function openDashboard(): Promise<void> {
@@ -26,7 +27,7 @@ try {
   else if (command === 'setup') {
     const { setup } = await import('../src/setup.js');
     const result = setup(process.argv[3] || 'all');
-    console.log(`Angine ready. Configured: ${result.installed.join(', ')}.${result.skipped.length ? ` Not installed: ${result.skipped.join(', ')}.` : ''}\nRestart your agents to begin reporting. Opening the dashboard…`);
+    console.log(`Angine ready. Configured: ${result.installed.join(', ')}.${result.skipped.length ? ` Not installed: ${result.skipped.join(', ')}.` : ''}\nRestart your agent sessions to begin reporting. For Antigravity, refresh its MCP server list, approve Angine tool access if prompted, and start a new session. Opening the dashboard…`);
     await openDashboard();
   } else if (command === 'uninstall') {
     const { uninstall } = await import('../src/setup.js');
@@ -37,7 +38,7 @@ try {
     console.log(httpWriteToken());
   } else if (command === 'report') {
     const method = process.argv[3];
-    if (!['sync_project', 'update_tasks'].includes(method)) throw new Error('Use: angine report sync_project|update_tasks --agent <name> < input.json');
+    if (!['sync_project', 'update_tasks', 'report_update'].includes(method)) throw new Error('Use: angine report sync_project|update_tasks|report_update --agent <name> < input.json');
     const index = process.argv.indexOf('--agent');
     const { agentName } = await import('../src/model.js');
     const agent = agentName(index >= 0 ? process.argv[index + 1] : 'external');
@@ -55,11 +56,27 @@ try {
     const { doctor } = await import('../src/setup.js');
     const checks = doctor();
     for (const check of checks) console.log(`${check.ok ? '✓' : '✗'} ${check.name}: ${check.detail}`);
+    try {
+      await request('reporter_health');
+      console.log('✓ Angine server: running');
+    } catch {
+      console.log('✗ Angine server: not running; start it with angine (or angine setup)');
+      checks.push({ name: 'Angine server', ok: false, detail: 'not running' });
+    }
     if (checks.some(c => !c.ok)) process.exitCode = 1;
   } else if (command === 'status') {
     const status = await request<DaemonStatus>('status');
     console.log(`Daemon: ${status.daemon}\nDashboard: ${status.url}\nProjects: ${status.projects}${status.missions !== undefined ? `\nMissions: ${status.missions}` : ''}\nRunning missions: ${status.running}`);
+  } else if (command === 'backup') {
+    const destination = process.argv[3];
+    if (!destination) throw new Error('Use: angine backup <new-folder-path>');
+    await ensureDaemon();
+    const result = await request<{ destination: string; eventFiles: number }>('backup', { destination: path.resolve(destination) });
+    console.log(`Backup created at ${result.destination}\nSaved the current snapshot and ${result.eventFiles} event log file(s). Store this folder somewhere separate from this computer.`);
+  } else if (command === 'stop') {
+    await request('stop');
+    console.log('Angine server stopped. Your project history was kept.');
   } else if (command === 'open') {
     await openDashboard();
-  } else { console.error('Usage: angine [setup [codex|claude]|open|restart|status|doctor|uninstall|token|report|mcp]'); process.exitCode = 1; }
+  } else { console.error('Usage: angine [setup [codex|claude|antigravity]|open|restart|stop|status|doctor|backup <new-folder-path>|uninstall|token|report|mcp]'); process.exitCode = 1; }
 } catch (error) { console.error(`Angine: ${(error as Error).message}`); process.exitCode = 1; }

@@ -67,7 +67,7 @@ function managedContent(content: string, replacement: string): string {
 }
 function run(command: string, args: string[]) {
   const env = command === 'claude' ? { ...process.env, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' } : process.env;
-  const result = spawnSync(command, args, { encoding: 'utf8', timeout: 10000, env });
+  const result = spawnSync(command, args, { encoding: 'utf8', timeout: 10000, env, shell: process.platform === 'win32' });
   return result.error ? { ...result, status: -1, stderr: result.error.message } : result;
 }
 function available(agent: AgentId): boolean { return run(integrations[agent].command, ['--version']).status === 0; }

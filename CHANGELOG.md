@@ -1,5 +1,10 @@
 # Release notes
 
+## 0.2.1 — Robust Antigravity setup
+
+- Treat an empty Antigravity MCP config as an empty configuration so `angine setup` can recover it safely. Existing config files are backed up before Angine writes its settings.
+- Include the affected config path in errors when Antigravity settings contain invalid JSON.
+
 ## 0.2.0 — Monitoring and Antigravity
 
 - Add `report_update` checkpoints for requests, implementation, deployment, monitoring, and blockers. Mission checkpoints also appear on the parent project.

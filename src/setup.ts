@@ -83,10 +83,16 @@ function saveManifest(record: Manifest): void { atomicWrite(manifestPath(), JSON
 function antigravityConfig(): { [key: string]: any; mcpServers: Record<string, any> } {
   const file = antigravityConfigPath();
   if (!fs.existsSync(file)) return { mcpServers: {} };
-  const value = JSON.parse(fs.readFileSync(file, 'utf8'));
-  if (!value || typeof value !== 'object' || Array.isArray(value) || value.mcpServers !== undefined && (!value.mcpServers || typeof value.mcpServers !== 'object' || Array.isArray(value.mcpServers)))
+  return parseAntigravityConfig(fs.readFileSync(file, 'utf8'), file);
+}
+export function parseAntigravityConfig(contents: string, file: string): { [key: string]: any; mcpServers: Record<string, any> } {
+  if (!contents.trim()) return { mcpServers: {} };
+  let value: unknown;
+  try { value = JSON.parse(contents); }
+  catch (error) { throw new Error(`Invalid Antigravity MCP config: ${file} (${(error as Error).message})`); }
+  if (!value || typeof value !== 'object' || Array.isArray(value) || (value as Record<string, unknown>).mcpServers !== undefined && (!(value as Record<string, unknown>).mcpServers || typeof (value as Record<string, unknown>).mcpServers !== 'object' || Array.isArray((value as Record<string, unknown>).mcpServers)))
     throw new Error(`Invalid Antigravity MCP config: ${file}`);
-  return { ...value, mcpServers: value.mcpServers || {} };
+  return { ...(value as Record<string, any>), mcpServers: (value as Record<string, any>).mcpServers || {} };
 }
 function isAngineAntigravityServer(server: any, expectedBin: string): boolean {
   return Boolean(server && Array.isArray(server.args) && server.args.includes(expectedBin) && server.args.includes('mcp') && server.args.includes('--agent') && server.args.includes('antigravity'));
@@ -137,6 +143,10 @@ function removeInstructions(file: string): void {
 }
 export function codexApprovalContent(content: string, replacement: string): string {
   const a = content.indexOf(approvalStart), b = content.indexOf(approvalEnd);
+  if (a < 0 && b >= 0 && content.indexOf(approvalEnd, b + approvalEnd.length) < 0) {
+    const withoutOrphan = content.slice(0, b) + content.slice(b + approvalEnd.length);
+    return replacement ? `${withoutOrphan.trimEnd()}\n\n${replacement}\n` : withoutOrphan;
+  }
   if ((a < 0) !== (b < 0) || (a >= 0 && (b < a || content.indexOf(approvalStart, a + approvalStart.length) >= 0 || content.indexOf(approvalEnd, b + approvalEnd.length) >= 0)))
     throw new Error('Ambiguous Angine approval markers');
   const unmanaged = a >= 0 ? content.slice(0, a) + content.slice(b + approvalEnd.length) : content;

@@ -10,7 +10,7 @@ Working with Claude Code, Codex, or Antigravity across several projects? Angine 
 
 **Local storage · Open source · Claude Code, Codex, and Antigravity setup · Shared missions across agents**
 
-**v0.2.0 is an early local release.** Angine relies on reports from connected agents; it does not independently observe their tool calls, file changes, or transcripts.
+**v0.2.1 is an early local release.** Angine relies on reports from connected agents; it does not independently observe their tool calls, file changes, or transcripts.
 
 ## Quick start
 

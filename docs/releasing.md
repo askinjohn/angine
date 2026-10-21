@@ -1,6 +1,6 @@
 # Publishing Angine
 
-Current release: `angine@0.2.0`.
+Current release: `angine@0.2.1`.
 
 ## Prepare
 
@@ -13,7 +13,7 @@ npm test
 npx tsc --noEmit -p ui/tsconfig.json
 npm pack --dry-run
 npm pack
-npm run test:release -- ./angine-0.2.0.tgz
+npm run test:release -- ./angine-0.2.1.tgz
 ```
 
 `prepack` builds the server and UI. The archive should contain compiled code, UI assets, README, release notes, and protocol documentation. It should not contain local Angine history, agent configuration, credentials, or dependencies copied from node_modules.
@@ -39,14 +39,14 @@ From a terminal with npm registry access:
 npm login
 npm whoami
 npm view angine versions
-npm publish ./angine-0.2.0.tgz --access public --tag latest
-npm view angine@0.2.0 version
+npm publish ./angine-0.2.1.tgz --access public --tag latest
+npm view angine@0.2.1 version
 ```
 
 After npm publication is verified, create the matching GitHub release:
 
 ```bash
-gh release create v0.2.0 ./angine-0.2.0.tgz --target main --title "Angine v0.2.0" --notes-file docs/releases/v0.2.0.md
+gh release create v0.2.1 ./angine-0.2.1.tgz --target main --title "Angine v0.2.1" --notes-file docs/releases/v0.2.1.md
 ```
 
 A not-found response from `npm view` can mean the package has not been published yet. If the name belongs to someone else, choose an available name or a scope you own, update the README/install instructions, and regenerate the archive. Do not overwrite or guess an unrelated package's ownership.

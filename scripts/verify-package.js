@@ -8,7 +8,8 @@ import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
-const archive=path.resolve(process.argv[2] || 'angine-0.1.1.tgz');
+const packageVersion=JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+const archive=path.resolve(process.argv[2] || `angine-${packageVersion}.tgz`);
 if(!fs.existsSync(archive)) throw new Error('Package archive missing. Run npm pack first.');
 if(process.platform==='win32') throw new Error('This release smoke check currently supports macOS and Linux.');
 const home=fs.mkdtempSync(path.join(os.tmpdir(),'angine-package-check-'));

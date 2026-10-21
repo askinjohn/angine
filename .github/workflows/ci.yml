@@ -38,4 +38,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm pack
-      - run: npm run test:release -- ./angine-0.1.1.tgz
+      - run: |
+          package_version="$(node -p "require('./package.json').version")"
+          npm run test:release -- "./angine-${package_version}.tgz"

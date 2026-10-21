@@ -1,5 +1,13 @@
 # Release notes
 
+## 0.2.0 — Monitoring and Antigravity
+
+- Add `report_update` checkpoints for requests, implementation, deployment, monitoring, and blockers. Mission checkpoints also appear on the parent project.
+- Add a highlighted Monitoring view with environment, latest check, status, and next-step details.
+- Add Antigravity setup, automatic detection in `angine setup`, diagnostics, and clean uninstall while preserving unrelated MCP configuration and guidance.
+- Add `angine stop` and consistent local history backups with `angine backup`.
+- Expand CI to Ubuntu, macOS, and Windows on Node 20 and 22; include a fresh npm archive smoke check.
+
 ## 0.1.1 — Worktrees, colors, and graph
 
 - Add a live React Flow graph tab with pan/zoom, draggable nodes, minimap, filtering, inherited colors, and saved node positions.

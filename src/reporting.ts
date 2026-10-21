@@ -1,7 +1,7 @@
 import type { ReportingHealth, ReporterConnection, State, Task } from './types.js';
 import { isStale } from './workflow.js';
 
-export const serverVersion = '0.1.1';
+export const serverVersion = '0.2.0';
 export const protocolVersion = 3;
 export const heartbeatTimeout = 75000;
 export function connectionStatus(connection: ReporterConnection, timestamp = Date.now()): 'connected' | 'disconnected' {

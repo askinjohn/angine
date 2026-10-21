@@ -14,7 +14,7 @@ if(process.platform==='win32') throw new Error('This release smoke check current
 const home=fs.mkdtempSync(path.join(os.tmpdir(),'angine-package-check-'));
 const prefix=path.join(home,'install'),data=path.join(home,'data'),fakeBin=path.join(home,'commands');
 const clients=[];
-const env={...process.env,ANGINE_HOME:data,CODEX_HOME:path.join(home,'codex'),CLAUDE_CONFIG_DIR:path.join(home,'claude')};
+const env={...process.env,HOME:home,ANGINE_HOME:data,CODEX_HOME:path.join(home,'codex'),CLAUDE_CONFIG_DIR:path.join(home,'claude')};
 delete env.CODEX_THREAD_ID;delete env.CODEX_SESSION_ID;
 let installed;
 try {
@@ -49,6 +49,19 @@ else process.exitCode=1;
   execFileSync(process.execPath,[cli,'setup'],{env,encoding:'utf8',timeout:20000});
   assert.match(fs.readFileSync(path.join(env.CODEX_HOME,'AGENTS.md'),'utf8'),/Angine/);
   assert.match(fs.readFileSync(path.join(env.CLAUDE_CONFIG_DIR,'CLAUDE.md'),'utf8'),/Angine/);
+  const antigravityConfig=path.join(home,'.gemini','config','mcp_config.json');
+  const antigravityRules=path.join(home,'.gemini','AGENTS.md');
+  fs.mkdirSync(path.dirname(antigravityConfig),{recursive:true});
+  fs.writeFileSync(antigravityConfig,JSON.stringify({mcpServers:{other:{command:'keep-me'}}}));
+  fs.writeFileSync(antigravityRules,'Existing Antigravity guidance.\n');
+  execFileSync(process.execPath,[cli,'setup','antigravity'],{env,encoding:'utf8',timeout:20000});
+  const antigravity=JSON.parse(fs.readFileSync(antigravityConfig,'utf8'));
+  assert.equal(antigravity.mcpServers.other.command,'keep-me');
+  assert.ok(antigravity.mcpServers.angine.args.includes('mcp'));
+  assert.ok(antigravity.mcpServers.angine.args.includes('--agent'));
+  assert.ok(antigravity.mcpServers.angine.args.includes('antigravity'));
+  assert.match(fs.readFileSync(antigravityRules,'utf8'),/Existing Antigravity guidance/);
+  assert.match(fs.readFileSync(antigravityRules,'utf8'),/Angine/);
   const installedRequire=createRequire(path.join(installed,'package.json'));
   const {Client}=await import(pathToFileURL(installedRequire.resolve('@modelcontextprotocol/sdk/client/index.js')).href);
   const {StdioClientTransport}=await import(pathToFileURL(installedRequire.resolve('@modelcontextprotocol/sdk/client/stdio.js')).href);
@@ -72,16 +85,20 @@ else process.exitCode=1;
   for(const agent of ['claude','codex']) {
     const client=new Client({name:'angine-release-verifier',version:manifest.version});clients.push(client);
     await client.connect(new StdioClientTransport({command:process.execPath,args:[cli,'mcp','--agent',agent,...(agent==='codex' ? ['--profile','release-codex'] : [])],env}));
-    const tools=await client.listTools();assert.deepEqual(tools.tools.map(t=>t.name).sort(),['check_connection','sync_project','update_tasks']);
+    const tools=await client.listTools();assert.deepEqual(tools.tools.map(t=>t.name).sort(),['check_connection','report_update','sync_project','update_tasks']);
     const connection=await call(client,'check_connection',{});assert.equal(connection.reporter.agent,agent);
     const result=await call(client,'sync_project',{project,mission,tasks:[{key:agent,title:`Verify ${agent} reporting`,status:'in_progress'}]});
     if(agent==='claude') first=result;else second=result;
     await call(client,'update_tasks',{projectId:result.projectId,missionId:result.missionId,updates:[{taskKey:agent,status:'completed'}]});
+    if(agent==='claude') await call(client,'report_update',{projectId:result.projectId,missionId:result.missionId,phase:'monitoring',status:'in_progress',summary:'Release smoke check passed: sample service returned HTTP 200.',nextStep:'Repeat the check in 15 minutes.',environment:'staging'});
   }
   assert.equal(first.projectId,second.projectId);assert.equal(first.missionId,second.missionId);
   const state=await fetchJson(`${base()}/api/state`);
   assert.equal(state.projects[first.projectId].status,'active');assert.equal(state.missions[first.missionId].status,'completed');
   assert.equal(state.tasks[first.taskIds.claude].updatedBy,'claude');assert.equal(state.tasks[second.taskIds.codex].updatedBy,'codex');
+  assert.equal(state.projects[first.projectId].latestMonitoring.summary,'Release smoke check passed: sample service returned HTTP 200.');
+  assert.equal(state.projects[first.projectId].latestMonitoring.environment,'staging');
+  assert.equal(state.missions[first.missionId].latestMonitoring.id,state.projects[first.projectId].latestMonitoring.id);
   const codexSession=state.sessions[state.tasks[second.taskIds.codex].updatedBySessionId];
   assert.equal(state.profiles[codexSession.profileId].key,'release-codex');
   const health=await fetchJson(`${base()}/api/health`);
@@ -96,8 +113,13 @@ else process.exitCode=1;
   assert.equal((await fetchJson(`${base()}/api/state`)).tasks[second.taskIds.codex].status,'completed');
   execFileSync(process.execPath,[cli,'uninstall'],{env,encoding:'utf8',timeout:15000});
   assert.equal(fs.existsSync(path.join(data,'integration.json')),false);
+  const antigravityAfterUninstall=JSON.parse(fs.readFileSync(antigravityConfig,'utf8'));
+  assert.equal(antigravityAfterUninstall.mcpServers.angine,undefined);
+  assert.equal(antigravityAfterUninstall.mcpServers.other.command,'keep-me');
+  assert.doesNotMatch(fs.readFileSync(antigravityRules,'utf8'),/<!-- angine:start -->/);
+  assert.match(fs.readFileSync(antigravityRules,'utf8'),/Existing Antigravity guidance/);
   assert.ok(fs.existsSync(path.join(data,'state','snapshot.json')));
-  console.log('Fresh archive install passed: Angine CLI, isolated setup, Claude/Codex MCP reporting, profiles, archive/restore, restart, and uninstall. Agent CLIs were simulated.');
+  console.log('Fresh archive install passed: Angine CLI, isolated setup, Claude/Codex MCP reporting, Antigravity setup/uninstall, monitoring checkpoints, profiles, archive/restore, and restart. Agent CLIs were simulated.');
 } finally {
   for(const client of clients) try {await client.close();}catch {}
   const runtimeFile=path.join(data,'runtime','daemon.json');

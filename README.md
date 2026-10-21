@@ -6,9 +6,9 @@
 [![CI](https://github.com/askinjohn/angine/actions/workflows/ci.yml/badge.svg)](https://github.com/askinjohn/angine/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Working with Claude Code and Codex across several projects? Angine brings their reported goals, tasks, progress, and blockers into one place. Agents send updates through MCP while they work, and you follow them in your browser.
+Working with Claude Code, Codex, or Antigravity across several projects? Angine brings their reported goals, tasks, progress, and blockers into one place. Agents send updates through MCP while they work, and you follow them in your browser.
 
-**Local storage · Open source · Claude Code and Codex setup · Shared missions across agents**
+**Local storage · Open source · Claude Code, Codex, and Antigravity setup · Shared missions across agents**
 
 **v0.1.1 is an early local release.** Angine relies on reports from connected agents; it does not independently observe their tool calls, file changes, or transcripts.
 
@@ -21,7 +21,7 @@ npm install -g angine
 angine setup
 ```
 
-`angine setup` configures detected Codex and Claude Code CLIs, starts the Angine server, and opens the dashboard. Restart your agent sessions after setup so they load the integration. You can configure just one with `angine setup codex` or `angine setup claude`.
+`angine setup` configures detected Codex and Claude Code CLIs, plus Antigravity when its `~/.gemini` configuration folder exists. It starts the Angine server and opens the dashboard. Restart your agent sessions after setup so they load the integration. Antigravity may ask you to approve Angine tool access. You can configure one with `angine setup codex`, `angine setup claude`, or `angine setup antigravity`.
 
 Installing the package alone does not start Angine or configure an agent. After setup, agent reports start the server automatically when needed. Run `angine` anytime to reopen the dashboard.
 
@@ -52,7 +52,7 @@ A project is a repository (or a folder outside Git); a mission is a goal; a task
 
 1. Setup registers a local MCP reporter and adds instructions telling the agent when to report.
 2. The agent registers a mission with `sync_project`, using stable project, mission, and task keys.
-3. It sends meaningful status changes with `update_tasks`.
+3. It sends meaningful status changes with `update_tasks` and concise request, implementation, deployment, monitoring, or blocker checkpoints with `report_update`. Checkpoints can link to a mission or directly to the project; mission checkpoints also appear on their parent project.
 4. The dashboard receives updates and shows the reported work live.
 
 Angine collects short metadata: titles, statuses, progress, notes, timestamps, and optional reporter identity. Reports must not contain prompts, reasoning, source code, diffs, commands, terminal output, credentials, or environment variables. Angine does not read those sources itself. Reporting quality depends on the agent following the reporting instructions.
@@ -67,6 +67,7 @@ Angine collects short metadata: titles, statuses, progress, notes, timestamps, a
 - **Filters:** search, agent, profile, project, mission, status, and stale activity; saved separately for each view in your browser.
 - **Connection health:** automatic MCP reporter heartbeats, accepted/rejected report counts, a connection check tool, and explicit server update notices.
 - **Needs attention:** a compact summary of blocked, failed, stale, and tracked disconnected work; detailed diagnostics stay expandable.
+- **Monitoring checkpoints:** separate highlighted latest checks at the top of the dashboard, linked to their project or mission and labeled with environment when reported.
 - **Agents and sessions:** editable profiles, reporter sessions, supplied native session IDs, and parent/child links when IDs are reported.
 - **Related work:** agents can share a project and mission, and link related tasks within that mission.
 - **Blockers:** reason, next action, and optional owner.
@@ -108,22 +109,26 @@ See the [reporting protocol](docs/protocol.md) for payloads and integration exam
 | Command | Purpose |
 | --- | --- |
 | `angine` or `angine open` | Start the server if needed and open the dashboard |
-| `angine setup [codex\|claude]` | Configure detected supported agents and open Angine |
+| `angine setup [codex\|claude\|antigravity]` | Configure supported agents and open Angine |
 | `angine status` | Show server status, dashboard URL, and project counts |
 | `angine restart` | Restart the server to load updated code; preserve history |
+| `angine stop` | Stop the background server without deleting history |
 | `angine doctor` | Check agent integrations |
+| `angine backup <new-folder-path>` | Save a consistent copy of your snapshot and event history |
 | `angine uninstall` | Remove managed integrations; preserve local history |
 | `angine mcp --agent <name> [--profile <key>]` | Run an MCP reporter |
 | `angine report <operation> --agent <name>` | Read a report as JSON from standard input |
 | `angine token` | Show the local HTTP reporting token; keep it private |
 
-For Codex, setup installs a removable approval policy for Angine's two reporting tools. Uninstall removes the managed instruction blocks, integrations, and policy.
+For Codex, setup installs a removable approval policy for Angine's reporting tools. Uninstall removes the managed instruction blocks, integrations, and policy.
 
 ## Local storage and access
 
 The hierarchy is **Project → Missions → Tasks**. For example, a product contains a mission to improve reporting, which contains tasks to add connection checks and verify updates.
 
 Angine stores history and configuration in `~/.angine`. The dashboard binds to `127.0.0.1`, starting at port 4317; use `angine status` for the active URL. MCP and CLI updates use a local Unix socket or Windows named pipe. HTTP reporting requires a local write token; dashboard edits require a same-origin browser session.
+
+To back up work, run `angine backup /path/to/a/new-folder`. The destination must not already exist. The backup contains the saved snapshot and event history, but excludes the local HTTP write token and agent configuration. It can contain task notes and profile details you entered, so store it somewhere trusted and separate from this computer. To restore manually, run `angine stop`, replace the `state` and `events` folders inside `~/.angine` with the corresponding folders from the backup, then run `angine` again. Keep a copy of the current folders before replacing them. On Windows, use `%USERPROFILE%\\.angine` instead of `~/.angine`.
 
 Angine makes no outbound network requests during normal operation. Saved filters and notification preferences live in browser storage. Agent reports and optional owner details are visible in the local dashboard; avoid putting sensitive content in metadata.
 
@@ -163,7 +168,7 @@ The UI build uses Vite 7; development requires a compatible Node release (20.19+
 
 Use `ANGINE_HOME` for isolated storage, `ANGINE_PORT` for a dashboard port, and `CODEX_HOME` for isolated Codex configuration tests.
 
-See the [contribution guide](CONTRIBUTING.md), [release notes](CHANGELOG.md), and [release checklist](docs/releasing.md).
+See the [contribution guide](CONTRIBUTING.md), [release notes](CHANGELOG.md), [release checklist](docs/releasing.md), and [TODO list](docs/todo.md).
 
 ## Feedback
 

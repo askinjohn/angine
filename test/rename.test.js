@@ -14,8 +14,8 @@ for (const failNew of [false,true]) test(`renamed installation ${failNew ? 'rest
     const commands=path.join(home,'commands'),data=path.join(home,'data'),config=path.join(home,'codex');
     for(const dir of [commands,data,config]) fs.mkdirSync(dir,{recursive:true});
     const fixture=path.join(home,'connection.json');fs.writeFileSync(fixture,JSON.stringify({bin:oldBin,oldBin,failNew}));
-    fs.writeFileSync(path.join(commands,'codex'),`#!${process.execPath}
-import fs from 'node:fs';
+    const executable=path.join(commands,process.platform==='win32'?'codex.cjs':'codex');
+    const source=`const fs=require('node:fs');
 const file=${JSON.stringify(fixture)};
 const state=JSON.parse(fs.readFileSync(file,'utf8'));
 const args=process.argv.slice(2);
@@ -27,9 +27,9 @@ else if(args[1]==='add') {
  if(state.failNew && bin!==state.oldBin) process.exitCode=1;
  else {state.bin=bin;fs.writeFileSync(file,JSON.stringify(state));}
 }
-`,{mode:0o755});
-    // Extensionless executables use CommonJS unless explicitly given module syntax.
-    const executable=path.join(commands,'codex');fs.writeFileSync(executable,fs.readFileSync(executable,'utf8').replace("import fs from 'node:fs';","const fs=require('node:fs');"));
+`;
+    fs.writeFileSync(executable,process.platform==='win32'?source:`#!${process.execPath}\n${source}`,{mode:0o755});
+    if(process.platform==='win32') fs.writeFileSync(path.join(commands,'codex.cmd'),`@echo off\r\n"${process.execPath}" "%~dp0codex.cjs" %*\r\nexit /b %ERRORLEVEL%\r\n`);
     fs.writeFileSync(path.join(config,'config.toml'),'[mcp_servers.other]\ncommand = "other"\n');
     fs.writeFileSync(path.join(data,'integration.json'),JSON.stringify({integrations:{codex:{bin:oldBin,mcpInstalled:true,instructionsFile:path.join(config,'AGENTS.md')}}}));
     process.env.PATH=`${commands}${path.delimiter}${saved.PATH}`;process.env.ANGINE_HOME=data;process.env.CODEX_HOME=config;

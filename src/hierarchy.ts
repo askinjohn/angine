@@ -8,7 +8,7 @@ export function projectFromMission(mission: Mission, workspace?: Workspace, prev
     name:previous?.name || workspaceName(workspace),description:previous?.description,color:previous?.color,status:'active',
     createdAt:previous && previous.createdAt < mission.createdAt ? previous.createdAt : mission.createdAt,
     updatedAt:previous && previous.updatedAt > mission.updatedAt ? previous.updatedAt : mission.updatedAt,
-    archivedAt:previous?.archivedAt })) as Project;
+    archivedAt:previous?.archivedAt, latestUpdate:previous?.latestUpdate, latestMonitoring:previous?.latestMonitoring })) as Project;
 }
 /** Convert a legacy snapshot or dashboard response without rewriting IDs or history. */
 export function normalizeHierarchy(input: State | Record<string, any>): State {

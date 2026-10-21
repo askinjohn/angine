@@ -2,7 +2,7 @@ import type { AgentProfile, Mission, Project, State, Task } from './types.js';
 
 export function defaultProfiles(): Record<string, AgentProfile> {
   return Object.fromEntries([
-    ['claude', 'Other'], ['codex', 'Other'], ['grok', 'Other']
+    ['claude', 'Other'], ['codex', 'Other'], ['antigravity', 'Other'], ['grok', 'Other']
   ].map(([agent, context]) => {
     const key = `${agent}-default`;
     const profile: AgentProfile = { id: `profile_${key}`, key, name: `${agent[0].toUpperCase() + agent.slice(1)} / ${context}`, agent, context, isDefault: true };

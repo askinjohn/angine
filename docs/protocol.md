@@ -59,6 +59,25 @@ Batch meaningful status changes with the returned `missionId`. Include `projectI
 
 Task statuses: `todo`, `in_progress`, `blocked`, `completed`, `failed`, `cancelled`. Mission statuses: `planned`, `running`, `blocked`, `completed`, `failed`, `cancelled`.
 
+## `report_update`
+
+Post a short checkpoint for a specific mission or the project as a whole. Use `missionId` for a scoped change; the checkpoint appears on that mission and its parent project. Use `projectId` alone for project-wide deployment or monitoring. Checkpoints do not change task or mission status.
+
+```json
+{
+  "agent": "claude",
+  "sessionKey": "session-example",
+  "missionId": "mis_...",
+  "phase": "deployment",
+  "status": "completed",
+  "environment": "production",
+  "summary": "Deploy completed; the production health endpoint returned HTTP 200.",
+  "nextStep": "Monitor the error rate for 30 minutes."
+}
+```
+
+For project-wide monitoring, omit `missionId` and provide `projectId`. Phases are `request`, `implementation`, `deployment`, `monitoring`, and `blocker`; statuses are `in_progress`, `completed`, `blocked`, and `failed`. Environments are optional: `development`, `staging`, or `production`. Keep summaries factual. Angine displays what the agent reports and does not independently verify deployments or production health.
+
 Both task creation and updates accept optional `progress` from 0 to 100. Omitted progress is preserved, except when reopening a completed task. Completed tasks display 100%, to-do tasks 0%, and unknown active progress “Not reported.” Mission progress is the share of non-cancelled tasks completed, not a measure of effort.
 
 Notes are optional, at most 500 characters. A blocked task may include:
@@ -97,15 +116,29 @@ command: angine
 args: mcp --agent opencode
 ```
 
-For a specific profile, add `--profile <key>`. Angine exposes `sync_project`, `update_tasks`, and read-only `check_connection`. MCP supplies the configured agent name and reporter session key, so those are omitted from tool inputs.
+For a specific profile, add `--profile <key>`. Angine exposes `sync_project`, `update_tasks`, `report_update`, and read-only `check_connection`. MCP supplies the configured agent name and reporter session key, so those are omitted from tool inputs.
 
-Codex reporters use CODEX_THREAD_ID or CODEX_SESSION_ID when its runtime supplies them. Unknown identity is omitted. `angine setup` configures detected Codex and Claude Code CLIs. Restart agent sessions after setup or tool changes.
+Codex reporters use CODEX_THREAD_ID or CODEX_SESSION_ID when its runtime supplies them. Unknown identity is omitted. `angine setup antigravity` merges a stdio server entry into `~/.gemini/config/mcp_config.json` and adds reporting guidance to `~/.gemini/AGENTS.md`; existing MCP entries and unmanaged rule text are preserved. In Antigravity, refresh the MCP server list and start a new agent session after setup or tool changes. `angine uninstall` removes the managed entry and guidance.
+
+Antigravity's global MCP config uses this shape; setup writes the current Angine executable and installation path for you:
+
+```json
+{
+  "mcpServers": {
+    "angine": {
+      "command": "/path/to/node",
+      "args": ["/path/to/angine/dist/bin/angine.js", "mcp", "--agent", "antigravity"]
+    }
+  }
+}
+```
 
 ## CLI
 
 ```bash
 angine report sync_project --agent opencode < plan.json
 angine report update_tasks --agent opencode < update.json
+angine report report_update --agent opencode < checkpoint.json
 ```
 
 Add `--profile <key>` for a specific profile. Reports start the daemon if needed. Use a consistent `sessionKey` within a session.
@@ -115,6 +148,7 @@ Add `--profile <key>` for a specific profile. Reports start the daemon if needed
 ```text
 POST /api/ingest/sync_project
 POST /api/ingest/update_tasks
+POST /api/ingest/report_update
 Content-Type: application/json
 Authorization: Bearer <local token>
 ```

@@ -8,7 +8,8 @@ import { ReporterRegistry, protocolVersion, serverVersion } from './health.js';
 import { createDashboardRouter, equalSecret } from './dashboard.js';
 import { dataDir, runtimePath, socketPath } from './paths.js';
 import { httpWriteToken } from './config.js';
-import type { SyncProjectInput, UpdateTasksInput } from './types.js';
+import { createBackup } from './backup.js';
+import type { ReportWorkUpdateInput, SyncProjectInput, UpdateTasksInput } from './types.js';
 
 const uiDir = path.resolve(fileURLToPath(new URL('../../ui/dist/', import.meta.url)));
 const mime: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -31,6 +32,7 @@ export async function startDaemon(): Promise<void> {
   let port = Number(process.env.ANGINE_PORT || 4317);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid ANGINE_PORT');
   const clients = new Set<http.ServerResponse>();
+  let stopServer: (() => void) | undefined;
   const httpServer = http.createServer((req, res) => {
     const host = req.headers.host || '';
     if (!/^((127\.0\.0\.1)|(localhost))(:(\d{1,5}))?$/.test(host)) return json(res, { error: 'Invalid host' }, 403);
@@ -39,7 +41,7 @@ export async function startDaemon(): Promise<void> {
     let url;
     try { url = new URL(req.url || '/', `http://${host}`); } catch { return json(res, { error: 'Invalid URL' }, 400); }
     if (dashboard(req, res, url)) return;
-    if (req.method === 'POST' && (url.pathname === '/api/ingest/sync_project' || url.pathname === '/api/ingest/update_tasks')) {
+    if (req.method === 'POST' && ['/api/ingest/sync_project', '/api/ingest/update_tasks', '/api/ingest/report_update'].includes(url.pathname)) {
       const header = req.headers.authorization || '';
       const supplied = header.startsWith('Bearer ') ? header.slice(7) : '';
       const valid = equalSecret(supplied, writeToken);
@@ -53,8 +55,8 @@ export async function startDaemon(): Promise<void> {
       req.on('end', () => {
         if (exceeded) return;
         try {
-          const input = JSON.parse(body) as SyncProjectInput | UpdateTasksInput;
-          const value = url.pathname.endsWith('sync_project') ? store.syncProject(input as SyncProjectInput) : store.updateTasks(input as UpdateTasksInput);
+          const input = JSON.parse(body) as SyncProjectInput | UpdateTasksInput | ReportWorkUpdateInput;
+          const value = url.pathname.endsWith('sync_project') ? store.syncProject(input as SyncProjectInput) : url.pathname.endsWith('update_tasks') ? store.updateTasks(input as UpdateTasksInput) : store.reportWorkUpdate(input as ReportWorkUpdateInput);
           json(res, value);
         } catch (error) { json(res, { error: (error as Error).message }, 400); }
       });
@@ -120,20 +122,24 @@ export async function startDaemon(): Promise<void> {
         const { method, params } = JSON.parse(buffer.slice(0, end)) as { method: string; params: unknown };
         let value: unknown;
         if (method === 'status') value = { serverVersion, protocolVersion, pid: process.pid, daemon: 'running', url: `http://127.0.0.1:${port}`, projects: Object.keys(store.state.projects).length, missions:Object.keys(store.state.missions).length, running: Object.values(store.state.missions).filter(p => p.status === 'running' && !p.archivedAt && !store.state.projects[p.projectId]?.archivedAt).length };
+        else if (method === 'backup') { store.snapshot(); value = createBackup((params as Record<string, unknown>)?.destination); }
+        else if (method === 'stop') value = { stopping: true };
         else if (method === 'reporter_ping') { value = reporters.ping(params as Record<string, unknown>); healthUpdate(); }
         else if (method === 'reporter_close') { reporters.close((params as Record<string, unknown>)?.reporterId); value = {closed:true}; healthUpdate(); }
         else if (method === 'reporter_health') value = reporters.view();
         else if (method === 'sync_project') { try { value = store.syncProject(params as SyncProjectInput); reporters.report((params as SyncProjectInput)?.reporterId,true); } catch(error) { reporters.report((params as SyncProjectInput)?.reporterId,false); throw error; } finally {healthUpdate();} }
         else if (method === 'update_tasks') { try { value = store.updateTasks(params as UpdateTasksInput); reporters.report((params as UpdateTasksInput)?.reporterId,true); } catch(error) { reporters.report((params as UpdateTasksInput)?.reporterId,false); throw error; } finally {healthUpdate();} }
+        else if (method === 'report_update') { try { value = store.reportWorkUpdate(params as ReportWorkUpdateInput); reporters.report((params as ReportWorkUpdateInput)?.reporterId,true); } catch(error) { reporters.report((params as ReportWorkUpdateInput)?.reporterId,false); throw error; } finally {healthUpdate();} }
         else throw new Error('Unknown method');
         socket.end(JSON.stringify({ ok: true, value }) + '\n');
+        if (method === 'stop') socket.once('finish', () => setImmediate(() => stopServer?.()));
       } catch (error) { socket.end(JSON.stringify({ ok: false, error: (error as Error).message }) + '\n'); }
     });
   });
+  stopServer = () => { clearInterval(keepalive); store.snapshot(); for(const client of clients) client.end(); clients.clear(); ipc.close(); httpServer.close(); if (process.platform !== 'win32') try { fs.unlinkSync(sock); } catch {} try { fs.unlinkSync(runtimePath()); } catch {} };
   await new Promise<void>((resolve, reject) => { ipc.once('error', reject); ipc.listen(sock, () => { ipc.off('error', reject); resolve(); }); });
   if (process.platform !== 'win32') fs.chmodSync(sock, 0o600);
   fs.writeFileSync(runtimePath(), JSON.stringify({ pid: process.pid, port, startedAt: new Date().toISOString() }), { mode: 0o600 });
-  const stop = () => { clearInterval(keepalive); store.snapshot(); for(const client of clients) client.end(); clients.clear(); ipc.close(); httpServer.close(); if (process.platform !== 'win32') try { fs.unlinkSync(sock); } catch {} try { fs.unlinkSync(runtimePath()); } catch {} };
-  process.once('SIGTERM', stop);
-  process.once('SIGINT', stop);
+  process.once('SIGTERM', () => stopServer?.());
+  process.once('SIGINT', () => stopServer?.());
 }

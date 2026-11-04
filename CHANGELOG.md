@@ -1,5 +1,12 @@
 # Release notes
 
+## 0.3.0 — Native desktop notifications
+
+- Add optional native macOS and Linux notifications for agent-reported task completion, blockers, and failures, with per-agent filters in Preferences.
+- Deliver notifications from the local Angine daemon, so the dashboard may be closed while the daemon is running.
+- Store notification preferences with local Angine data and add a test notification control.
+- Remove the workspace terminal-launch action; Angine continues to display reported terminal metadata and supported attach actions.
+
 ## 0.2.1 — Robust Antigravity setup
 
 - Treat an empty Antigravity MCP config as an empty configuration so `angine setup` can recover it safely. Existing config files are backed up before Angine writes its settings.

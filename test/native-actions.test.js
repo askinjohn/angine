@@ -12,7 +12,7 @@ test('notification rules persist in the private Angine data directory', () => {
     assert.deepEqual(loadNotificationPreferences(), { enabled: false, completed: true, attention: true, agent: 'all' });
     const saved = saveNotificationPreferences({ enabled: true, completed: true, attention: false, agent: 'claude' });
     assert.deepEqual(loadNotificationPreferences(), saved);
-    assert.equal((fs.statSync(path.join(home, 'notifications.json')).mode & 0o777), 0o600);
+    if (process.platform !== 'win32') assert.equal((fs.statSync(path.join(home, 'notifications.json')).mode & 0o777), 0o600);
     assert.throws(() => saveNotificationPreferences({ enabled: true, completed: true, attention: true, agent: 'claude; rm -rf' }), /Invalid notification settings/);
   } finally {
     if (prior === undefined) delete process.env.ANGINE_HOME; else process.env.ANGINE_HOME = prior;

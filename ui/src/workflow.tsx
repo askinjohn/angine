@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { AgentProfile, AgentSession, Project, Mission, State, Task, ReportingHealth } from '../../src/types';
 import { isArchivedTask } from '../../src/hierarchy';
 import { Connections } from './reporting';
-import { isStale, notificationChanges } from '../../src/workflow';
+import { isStale, type NotificationRules } from '../../src/workflow';
 
 export type Filters = { agent: string; status: string; project: string; mission: string; profile: string; query: string; staleOnly: boolean };
-export type Preferences = { staleMinutes: number; notifications: boolean };
+export type DesktopNotifications = NotificationRules & { enabled: boolean; completed: boolean; attention: boolean; agent: string };
+export type Preferences = { staleMinutes: number; notifications: DesktopNotifications };
 export type Mutate = (operation: string, input: unknown) => Promise<boolean>;
 const defaults: Filters = { agent: 'all', status: 'all', project: 'all', mission: 'all', profile: 'all', query: '', staleOnly: false };
 export const agentLabel = (name?: string) => ({ codex: 'Codex', claude: 'Claude', antigravity: 'Antigravity', grok: 'Grok', external: 'External' }[(name || 'external').trim()] || name || 'External');
@@ -21,36 +22,45 @@ export function useSavedFilters(section: string) {
 }
 export function usePreferences() {
   const [preferences, setPreferences] = useState<Preferences>(() => {
-    const value = readLocal<Preferences>('angine-preferences-v1', { staleMinutes: 60, notifications: false });
-    return { staleMinutes: [0,15,60,240,1440].includes(value.staleMinutes) ? value.staleMinutes : 60, notifications: value.notifications === true };
+    const value = readLocal<{ staleMinutes?: number }>('angine-preferences-v1', { staleMinutes: 60 });
+    const staleMinutes = value.staleMinutes ?? 60;
+    return { staleMinutes: [0,15,60,240,1440].includes(staleMinutes) ? staleMinutes : 60, notifications: { enabled: false, completed: true, attention: true, agent: 'all' } };
   });
-  useEffect(() => writeLocal('angine-preferences-v1', preferences), [preferences]);
-  return { preferences, setPreferences };
-}
-export function useNotifications(state: State | null, enabled: boolean) {
-  const previous = useRef<State | null>(null);
+  const [notificationError, setNotificationError] = useState('');
+  const [notificationSupported, setNotificationSupported] = useState(true);
+  useEffect(() => writeLocal('angine-preferences-v1', { staleMinutes: preferences.staleMinutes }), [preferences.staleMinutes]);
   useEffect(() => {
-    if (!state) return;
-    const changes = notificationChanges(previous.current, state);
-    previous.current = state;
-    if (!enabled || !changes.length || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-    const completed = changes.filter(t => t.status === 'completed').length;
-    const blocked = changes.length - completed;
-    const title = changes.length === 1 ? `Angine · Task ${changes[0].status}` : 'Angine · Work updated';
-    const body = changes.length === 1 ? changes[0].title : [completed ? `${completed} completed` : '', blocked ? `${blocked} blocked` : ''].filter(Boolean).join(' · ');
-    try {
-      const notification = new Notification(title, { body, tag: 'angine-work-update' });
-      notification.onclick = () => { window.focus(); location.hash = href('tasks', changes[0].id).slice(1); notification.close(); };
-    } catch { /* notifications may be disabled by the operating system */ }
-  }, [state, enabled]);
+    let active = true;
+    (async () => {
+      try {
+        await fetch('/api/dashboard/session');
+        const response = await fetch('/api/dashboard/preferences', { headers: { 'X-Angine-UI': '1' } });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not load notification settings.');
+        if (active) { setPreferences(previous => ({ ...previous, notifications: result.preferences })); setNotificationSupported(result.systemNotificationsSupported === true); }
+      } catch (error) { if (active) setNotificationError((error as Error).message); }
+    })();
+    return () => { active = false; };
+  }, []);
+  const saveNotifications = async (notifications: DesktopNotifications) => {
+    const state = await dashboardMutation('preferences', notifications);
+    setPreferences(previous => ({ ...previous, notifications }));
+    setNotificationError('');
+    return state;
+  };
+  const testNotifications = async () => { await dashboardMutation('notification-test', {}); };
+  return { preferences, setPreferences, saveNotifications, testNotifications, notificationError, notificationSupported };
 }
-export async function dashboardMutation(operation: string, input: unknown): Promise<State> {
+export async function dashboardMutationResult(operation: string, input: unknown): Promise<{ state: State; openedWith?: string }> {
   const session = await fetch('/api/dashboard/session');
   if (!session.ok) throw new Error('Run angine restart in your terminal to load the new dashboard controls, then refresh this page and save again.');
   const response = await fetch(`/api/dashboard/${operation}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Angine-UI': '1' }, body: JSON.stringify(input) });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Could not save the change.');
-  return result.state;
+  return result;
+}
+export async function dashboardMutation(operation: string, input: unknown): Promise<State> {
+  return (await dashboardMutationResult(operation, input)).state;
 }
 export function profileForSession(state: State, session?: AgentSession): AgentProfile | undefined {
   if (!session) return undefined;
@@ -119,7 +129,13 @@ export function ArchiveView({ state, mutate }: { state: State; mutate: Mutate })
   const items = [...Object.values(state.projects).filter(p=>p.archivedAt).map(p=>({...p,kind:'projects'})),...Object.values(state.missions).filter(m=>m.archivedAt).map(m=>({...m,kind:'missions'}))].sort((a,b)=>b.archivedAt!.localeCompare(a.archivedAt!));
   return <><div class="view-heading"><div><h1>Archive <span class="section-count">{items.length}</span></h1><p>Projects and missions hidden from the main views. Tasks and history are preserved.</p></div></div><div class="panel archive-list">{items.map(p=><div key={p.id}><a href={href(p.kind,p.id)}><strong>{p.name}</strong><span>{p.kind==='missions' ? `Mission · ${state.projects[(p as Mission).projectId]?.name || ''}` : 'Project'} · Archived {new Date(p.archivedAt!).toLocaleString()}</span>{p.kind==='missions' && state.projects[(p as Mission).projectId]?.archivedAt && <span>Restore the parent project to make this mission visible.</span>}</a><button class="secondary-button" onClick={()=>mutate('archive',{projectId:p.id,archived:false})}>Restore</button></div>)}{!items.length && <p class="muted">No archived projects or missions.</p>}</div></>;
 }
-export function SettingsView({ preferences, setPreferences, resetFilters }: { preferences: Preferences; setPreferences: (value: Preferences) => void; resetFilters: () => void }) {
+export function SettingsView({ preferences, setPreferences, resetFilters, agents, saveNotifications, testNotifications, notificationError, notificationSupported }: { preferences: Preferences; setPreferences: (value: Preferences) => void; resetFilters: () => void; agents: string[]; saveNotifications: (value: DesktopNotifications) => Promise<State>; testNotifications: () => Promise<void>; notificationError: string; notificationSupported: boolean }) {
   const [message, setMessage] = useState('');
-  return <><div class="view-heading"><div><h1>Preferences</h1><p>Activity indicators, saved filters, and optional alerts.</p></div></div><section class="panel settings-panel"><h2>Stale activity</h2><label>Flag active work after no reported update for<select value={preferences.staleMinutes} onChange={e => setPreferences({...preferences,staleMinutes:Number(e.currentTarget.value)})}><option value={0}>Off</option><option value={15}>15 minutes</option><option value={60}>1 hour</option><option value={240}>4 hours</option><option value={1440}>1 day</option></select></label><p class="muted">Stale describes reporting activity. It does not change a task's status.</p></section><section class="panel settings-panel"><h2>Saved filters</h2><p class="muted">Project, mission, agent, profile, status, and search selections are remembered separately for each view on this device.</p><button class="secondary-button" onClick={() => { resetFilters(); setMessage('Saved filters reset.'); }}>Reset saved filters</button></section><section class="panel settings-panel"><h2>Desktop notifications</h2><p class="muted">Optional alerts for tasks that finish or become blocked. The dashboard must remain open.</p><button class="secondary-button" onClick={async () => { if (preferences.notifications) { setPreferences({...preferences,notifications:false}); setMessage('Notifications disabled.'); return; } if (typeof Notification === 'undefined') {setMessage('This browser does not support desktop notifications.');return;} try { const permission = await Notification.requestPermission(); if(permission === 'granted') {setPreferences({...preferences,notifications:true});setMessage('Notifications enabled.');} else setMessage('Notification permission was not granted.'); } catch {setMessage('Notifications are unavailable in this browser.');} }}>{preferences.notifications ? 'Disable notifications' : 'Enable notifications'}</button><p class="muted" role="status">{message}</p></section></>;
+  const updateNotifications = async (patch: Partial<DesktopNotifications>) => {
+    setMessage('Saving…');
+    try { await saveNotifications({ ...preferences.notifications, ...patch }); setMessage('Notification settings saved.'); }
+    catch (error) { setMessage((error as Error).message); }
+  };
+  const test = async () => { setMessage('Sending test alert…'); try { await testNotifications(); setMessage('Test alert sent.'); } catch (error) { setMessage((error as Error).message); } };
+  return <><div class="view-heading"><div><h1>Preferences</h1><p>Activity indicators, saved filters, and alerts.</p></div></div><section class="panel settings-panel"><h2>Stale activity</h2><label>Flag active work after no reported update for<select value={preferences.staleMinutes} onChange={e => setPreferences({...preferences,staleMinutes:Number(e.currentTarget.value)})}><option value={0}>Off</option><option value={15}>15 minutes</option><option value={60}>1 hour</option><option value={240}>4 hours</option><option value={1440}>1 day</option></select></label><p class="muted">Stale describes reporting activity. It does not change a task's status.</p></section><section class="panel settings-panel"><h2>Saved filters</h2><p class="muted">Project, mission, agent, profile, status, and search selections are remembered separately for each view on this device.</p><button class="secondary-button" onClick={() => { resetFilters(); setMessage('Saved filters reset.'); }}>Reset saved filters</button></section><section class="panel settings-panel"><h2>System notifications</h2><p class="muted">Angine sends alerts from this computer when an agent reports a task completed, blocked, or failed. The dashboard can be closed; Angine must still be running.</p>{!notificationSupported ? <p class="muted">Native alerts are currently supported on macOS and Linux.</p> : <><button class="secondary-button" onClick={() => void updateNotifications({ enabled: !preferences.notifications.enabled })}>{preferences.notifications.enabled ? 'Disable notifications' : 'Enable notifications'}</button>{preferences.notifications.enabled && <div class="notification-options"><label class="check-label"><input type="checkbox" checked={preferences.notifications.completed} onChange={e => void updateNotifications({ completed: e.currentTarget.checked })} />Task completed</label><label class="check-label"><input type="checkbox" checked={preferences.notifications.attention} onChange={e => void updateNotifications({ attention: e.currentTarget.checked })} />Needs attention (blocked or failed)</label><label>Agent<select value={preferences.notifications.agent} onChange={e => void updateNotifications({ agent: e.currentTarget.value })}><option value="all">All agents</option>{agents.map(agent => <option key={agent} value={agent}>{agentLabel(agent)}</option>)}</select></label><button class="secondary-button" onClick={test}>Send test notification</button></div>}</>}<p class="muted" role="status">{message || notificationError}</p></section></>;
 }

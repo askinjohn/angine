@@ -9,6 +9,8 @@ import { createDashboardRouter, equalSecret } from './dashboard.js';
 import { dataDir, runtimePath, socketPath } from './paths.js';
 import { httpWriteToken } from './config.js';
 import { createBackup } from './backup.js';
+import { notificationChanges } from './workflow.js';
+import { loadNotificationPreferences, saveNotificationPreferences, sendSystemNotification } from './notifications.js';
 import type { ReportWorkUpdateInput, SyncProjectInput, UpdateTasksInput } from './types.js';
 
 const uiDir = path.resolve(fileURLToPath(new URL('../../ui/dist/', import.meta.url)));
@@ -28,7 +30,12 @@ export async function startDaemon(): Promise<void> {
   const reporters = new ReporterRegistry(() => store.state.profiles, () => Date.now(), reporterId =>
     Object.values(store.state.sessions).filter(s => s.reporterId === reporterId).map(s => s.lastSeenAt).sort().at(-1));
   const writeToken = httpWriteToken();
-  const dashboard = createDashboardRouter(store);
+  let notificationPreferences = loadNotificationPreferences();
+  const dashboard = createDashboardRouter(store, {
+    notify: sendSystemNotification,
+    getNotifications: () => notificationPreferences,
+    setNotifications: value => notificationPreferences = saveNotificationPreferences(value)
+  });
   let port = Number(process.env.ANGINE_PORT || 4317);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid ANGINE_PORT');
   const clients = new Set<http.ServerResponse>();
@@ -91,7 +98,21 @@ export async function startDaemon(): Promise<void> {
     res.writeHead(200, { ...securityHeaders, 'Content-Type': mime[path.extname(full)] || 'application/octet-stream' });
     res.end(content);
   });
+  let previousNotificationState = store.view();
   store.listeners.add((_events, state) => {
+    const notifications = notificationChanges(previousNotificationState, state, notificationPreferences);
+    previousNotificationState = state;
+    if (notificationPreferences.enabled && notifications.length) {
+      const done = notifications.filter(task => task.status === 'completed').length;
+      const attention = notifications.length - done;
+      const title = notifications.length === 1
+        ? `Angine · ${notifications[0].status === 'completed' ? 'Task completed' : 'Needs attention'}`
+        : 'Angine · Work updated';
+      const body = notifications.length === 1
+        ? `${notifications[0].updatedBy}: ${notifications[0].title}`
+        : [done ? `${done} completed` : '', attention ? `${attention} need attention` : ''].filter(Boolean).join(' · ');
+      void sendSystemNotification(title, body).catch(error => console.error(`Angine system notification failed: ${(error as Error).message}`));
+    }
     const message = `event: state\ndata: ${JSON.stringify(state)}\n\n`;
     for (const client of clients) client.write(message);
   });

@@ -20,3 +20,5 @@
 .mission-heading{padding-inline-start:18px}.task-row,.project-row,.board-card{border-inline-start-color:transparent}
 
 .color-control{padding:0 0 16px;margin-bottom:16px;border-bottom:1px solid #edf0f5}.color-control label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;font-weight:600}.color-control input[type=color]{width:40px;height:30px;padding:2px;border:1px solid #dbe1eb;border-radius:5px;background:white;cursor:pointer}.color-control p{font-size:11px;line-height:1.6;color:#768297;margin:8px 0}.color-control>span{font-size:11px;margin-left:8px}
+
+.notification-options{display:flex;flex-direction:column;align-items:flex-start;gap:14px;margin:18px 0 10px}.notification-options label.check-label{display:flex;flex-direction:row;align-items:center;gap:9px;color:#58677e}.notification-options input[type=checkbox]{accent-color:#315cce}

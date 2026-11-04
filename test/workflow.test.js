@@ -85,3 +85,20 @@ test('stale flags describe active reporting only and notifications ignore old or
   store.updateTasks({projectId:result.projectId,updates:[{taskKey:'a',status:'completed'}]});
   assert.deepEqual(notificationChanges(blocked,store.state),[]);
 }));
+test('notification rules filter agents and separate completion from attention events', () => isolated((store,home) => {
+  const result = store.syncProject({agent:'claude',project:{name:'Claude alerts',workspacePath:home},tasks:[
+    {key:'done',title:'Done task',status:'in_progress'},
+    {key:'blocked',title:'Blocked task',status:'in_progress'},
+    {key:'failed',title:'Failed task',status:'in_progress'}
+  ]});
+  const before = store.view();
+  store.updateTasks({agent:'claude',projectId:result.projectId,updates:[
+    {taskKey:'done',status:'completed'},
+    {taskKey:'blocked',status:'blocked'},
+    {taskKey:'failed',status:'failed'}
+  ]});
+  assert.deepEqual(notificationChanges(before,store.state,{agent:'claude',completed:true,attention:false}).map(t=>t.key),['done']);
+  assert.deepEqual(notificationChanges(before,store.state,{agent:'claude',completed:false,attention:true}).map(t=>t.key),['blocked','failed']);
+  assert.deepEqual(notificationChanges(before,store.state,{agent:'codex'}),[]);
+  assert.deepEqual(notificationChanges(before,store.state,{completed:false,attention:false}),[]);
+}));

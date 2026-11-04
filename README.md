@@ -73,7 +73,7 @@ Angine collects short metadata: titles, statuses, progress, notes, timestamps, a
 - **Blockers:** reason, next action, and optional owner.
 - **Archive:** hide projects or individual missions and restore them without deleting their tasks or history.
 - **Stale indicators:** flag active work with no recent report; threshold is configurable and does not change task status.
-- **Notifications:** optional desktop alerts for existing tasks that finish or become blocked. An Angine browser tab must remain open, and browser/OS permission must be allowed.
+- **System notifications:** optional native macOS and Linux alerts for task completion or attention needed (blocked or failed), configurable by agent in Preferences. Alerts run from the local Angine daemon, so the dashboard may be closed while the daemon is running. Agents must report task status to Angine.
 
 Task progress is reported explicitly. Unknown active progress displays “Not reported”; completed tasks show 100% and to-do tasks show 0%. Mission progress is the share of non-cancelled tasks completed, not an estimate of effort. Projects stay active as long-lived containers; completing their current missions does not close them.
 

@@ -10,7 +10,7 @@ Working with Claude Code, Codex, or Antigravity across several projects? Angine 
 
 **Local storage · Open source · Claude Code, Codex, and Antigravity setup · Shared missions across agents**
 
-**v0.2.1 is an early local release.** Angine relies on reports from connected agents; it does not independently observe their tool calls, file changes, or transcripts.
+**v0.3.0 is an early local release.** Angine relies on reports from connected agents; it does not independently observe their tool calls, file changes, or transcripts.
 
 ## Quick start
 
@@ -130,9 +130,9 @@ Angine stores history and configuration in `~/.angine`. The dashboard binds to `
 
 To back up work, run `angine backup /path/to/a/new-folder`. The destination must not already exist. The backup contains the saved snapshot and event history, but excludes the local HTTP write token and agent configuration. It can contain task notes and profile details you entered, so store it somewhere trusted and separate from this computer. To restore manually, run `angine stop`, replace the `state` and `events` folders inside `~/.angine` with the corresponding folders from the backup, then run `angine` again. Keep a copy of the current folders before replacing them. On Windows, use `%USERPROFILE%\\.angine` instead of `~/.angine`.
 
-Angine makes no outbound network requests during normal operation. Saved filters and notification preferences live in browser storage. Agent reports and optional owner details are visible in the local dashboard; avoid putting sensitive content in metadata.
+Angine makes no outbound network requests during normal operation. Saved filters live in browser storage; notification preferences are stored in the local Angine data directory. Agent reports and optional owner details are visible in the local dashboard; avoid putting sensitive content in metadata.
 
-This MVP is for one computer. Mobile access over Wi-Fi, a shared company server, team authentication, independent agent observation, and notifications with all browser tabs closed are not implemented.
+This MVP is for one computer. Mobile access over Wi-Fi, a shared company server, team authentication, and independent agent observation are not implemented. System notifications work while the dashboard is closed, but require the local Angine daemon to keep running and an agent to report the task update.
 
 ## Upgrading and troubleshooting
 
